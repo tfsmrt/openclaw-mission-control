@@ -31,20 +31,21 @@ services:
     env_file:
       - ./backend/.env.example
     environment:
-      # Override localhost defaults for container networking
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-mission_control}
+      # Use localhost since host networking shares the host network namespace
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@localhost:5432/${POSTGRES_DB:-mission_control}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       DB_AUTO_MIGRATE: ${DB_AUTO_MIGRATE:-true}
       AUTH_MODE: ${AUTH_MODE}
       LOCAL_AUTH_TOKEN: ${LOCAL_AUTH_TOKEN}
-      RQ_REDIS_URL: redis://redis:6379/0
+      RQ_REDIS_URL: redis://localhost:6379/0
+      GATEWAY_DEVICE_ID: ${GATEWAY_DEVICE_ID}
+      GATEWAY_DEVICE_PRIVATE_KEY_PEM: ${GATEWAY_DEVICE_PRIVATE_KEY_PEM}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
+    network_mode: host
 
   frontend:
     build:
