@@ -25,7 +25,12 @@ type BoardChatComposerProps = {
 const normalizeMentionHandle = (raw: string): string | null => {
   const trimmed = raw.trim().replace(/^@+/, "");
   if (!trimmed) return null;
-  const token = trimmed.split(/\s+/)[0]?.replace(/[^A-Za-z0-9_-]/g, "") ?? "";
+  // Join all words with dashes so "Copywriter 1" → "copywriter-1", "Ogilvy" → "ogilvy"
+  const token = trimmed
+    .split(/\s+/)
+    .map((w) => w.replace(/[^A-Za-z0-9_-]/g, ""))
+    .filter(Boolean)
+    .join("-");
   if (!token) return null;
   if (!/^[A-Za-z]/.test(token)) return null;
   return token.slice(0, 32).toLowerCase();
