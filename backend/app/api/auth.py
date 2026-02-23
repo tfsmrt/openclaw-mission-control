@@ -30,7 +30,6 @@ AUTH_CONTEXT_DEP = Depends(get_auth_context)
                         "clerk_user_id": "user_2abcXYZ",
                         "email": "alex@example.com",
                         "name": "Alex Chen",
-                        "preferred_name": "Alex",
                         "pronouns": "they/them",
                         "timezone": "America/Los_Angeles",
                         "notes": "Primary operator for board triage.",

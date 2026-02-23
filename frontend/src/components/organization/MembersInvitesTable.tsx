@@ -57,7 +57,6 @@ const summarizeAccess = (allRead: boolean, allWrite: boolean) => {
 const memberDisplay = (member: OrganizationMemberRead) => {
   const primary =
     member.user?.name ||
-    member.user?.preferred_name ||
     member.user?.email ||
     member.user_id;
   const secondary = member.user?.email ?? "No email on file";

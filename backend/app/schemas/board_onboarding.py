@@ -68,14 +68,12 @@ def _normalize_optional_text(value: object) -> object | None:
 class BoardOnboardingUserProfile(SQLModel):
     """User-profile preferences gathered during onboarding."""
 
-    preferred_name: str | None = None
     pronouns: str | None = None
     timezone: str | None = None
     notes: str | None = None
     context: str | None = None
 
     @field_validator(
-        "preferred_name",
         "pronouns",
         "timezone",
         "notes",

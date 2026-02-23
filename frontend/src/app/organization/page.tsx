@@ -918,7 +918,6 @@ export default function OrganizationPage() {
               <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
                 <p className="text-sm font-semibold text-slate-900">
                   {memberDetailsQuery.data.data.user?.name ||
-                    memberDetailsQuery.data.data.user?.preferred_name ||
                     memberDetailsQuery.data.data.user?.email ||
                     memberDetailsQuery.data.data.user_id}
                 </p>
@@ -1048,7 +1047,6 @@ export default function OrganizationPage() {
             Remove{" "}
             <strong>
               {memberDetails?.user?.name ||
-                memberDetails?.user?.preferred_name ||
                 memberDetails?.user?.email ||
                 "this member"}
             </strong>{" "}

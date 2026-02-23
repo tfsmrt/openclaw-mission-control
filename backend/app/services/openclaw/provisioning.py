@@ -178,12 +178,8 @@ def _display_name(user: User | None) -> str:
     return (user.email or "").strip()
 
 
-def _preferred_name(user: User | None) -> str:
-    preferred_name = (user.preferred_name or "") if user else ""
-    if preferred_name:
-        preferred_name = preferred_name.strip().split()[0]
-    if preferred_name:
-        return preferred_name
+def _short_name(user: User | None) -> str:
+    """Return the first word of the user's name, falling back to email local part."""
     display_name = _display_name(user)
     if display_name:
         if "@" in display_name:
@@ -196,7 +192,7 @@ def _preferred_name(user: User | None) -> str:
 def _user_context(user: User | None) -> dict[str, str]:
     return {
         "user_name": _display_name(user),
-        "user_preferred_name": _preferred_name(user),
+        "user_preferred_name": _short_name(user),
         "user_pronouns": (user.pronouns or "") if user else "",
         "user_timezone": (user.timezone or "") if user else "",
         "user_notes": (user.notes or "") if user else "",

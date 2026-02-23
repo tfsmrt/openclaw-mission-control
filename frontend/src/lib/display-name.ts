@@ -27,7 +27,6 @@ export const resolveMemberDisplayName = (
   fallbackName: string = DEFAULT_HUMAN_LABEL,
 ): string =>
   resolveHumanActorName(
-    normalizeDisplayName(member?.user?.preferred_name) ??
-      normalizeDisplayName(member?.user?.name),
+    normalizeDisplayName(member?.user?.name),
     fallbackName,
   );

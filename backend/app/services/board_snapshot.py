@@ -182,13 +182,13 @@ async def build_board_snapshot(session: AsyncSession, board: Board) -> BoardSnap
     if creator_user_ids:
         user_rows = list(
             await session.exec(
-                select(UserModel.id, UserModel.preferred_name, UserModel.name).where(
+                select(UserModel.id, UserModel.name).where(
                     col(UserModel.id).in_(creator_user_ids)
                 )
             )
         )
-        for user_id, preferred_name, name in user_rows:
-            creator_name_by_user_id[user_id] = (preferred_name or name or "").strip() or "User"
+        for user_id, name in user_rows:
+            creator_name_by_user_id[user_id] = (name or "").strip() or "User"
 
     task_cards = [
         _task_to_card(

@@ -62,7 +62,7 @@ export default function SettingsPage() {
     profile?.email ?? user?.primaryEmailAddress?.emailAddress ?? "";
   const resolvedName = nameEdited
     ? name
-    : (profile?.name ?? profile?.preferred_name ?? clerkFallbackName);
+    : (profile?.name ?? clerkFallbackName);
   const resolvedTimezone = timezoneEdited
     ? (timezone ?? "")
     : (profile?.timezone ?? "");

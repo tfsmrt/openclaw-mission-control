@@ -129,9 +129,6 @@ def _apply_user_profile(
         return False
 
     changed = False
-    if profile.preferred_name is not None:
-        auth.user.preferred_name = profile.preferred_name
-        changed = True
     if profile.pronouns is not None:
         auth.user.pronouns = profile.pronouns
         changed = True
@@ -272,7 +269,7 @@ async def start_onboarding(
         '-d \'{"status":"complete","board_type":"goal","objective":"...",'
         '"success_metrics":{"metric":"...","target":"..."},'
         '"target_date":"YYYY-MM-DD",'
-        '"user_profile":{"preferred_name":"...","pronouns":"...",'
+        '"user_profile":{"pronouns":"...",'
         '"timezone":"...","notes":"...","context":"..."},'
         '"lead_agent":{"name":"Ava","identity_profile":{"role":"Board Lead",'
         '"communication_style":"direct, concise, practical","emoji":":gear:"},'

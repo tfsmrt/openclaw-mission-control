@@ -46,7 +46,6 @@ class OrganizationUserRead(SQLModel):
     id: UUID
     email: str | None = None
     name: str | None = None
-    preferred_name: str | None = None
 
 
 class OrganizationMemberRead(SQLModel):

@@ -10,7 +10,6 @@
  */
 export interface UserUpdate {
   name?: string | null;
-  preferred_name?: string | null;
   pronouns?: string | null;
   timezone?: string | null;
   notes?: string | null;

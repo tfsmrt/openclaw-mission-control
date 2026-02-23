@@ -435,12 +435,6 @@ export function BoardOnboardingChat({
                   User profile
                 </p>
                 <p className="text-slate-700">
-                  <span className="font-medium text-slate-900">
-                    Preferred name:
-                  </span>{" "}
-                  {draft.user_profile.preferred_name || "—"}
-                </p>
-                <p className="text-slate-700">
                   <span className="font-medium text-slate-900">Pronouns:</span>{" "}
                   {draft.user_profile.pronouns || "—"}
                 </p>

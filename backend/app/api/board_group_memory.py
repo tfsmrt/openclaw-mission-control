@@ -231,7 +231,7 @@ def _group_actor_name(actor: ActorContext) -> str:
     if actor.actor_type == "agent" and actor.agent:
         return actor.agent.name
     if actor.user:
-        return actor.user.preferred_name or actor.user.name or "User"
+        return actor.user.name or "User"
     return "User"
 
 
@@ -419,12 +419,16 @@ async def create_board_group_memory(
     is_chat = "chat" in tags
     mentions = extract_mentions(payload.content)
     should_notify = is_chat or "broadcast" in tags or "all" in mentions
-    source = payload.source
-    if should_notify and not source:
+    # For chat/notify messages always derive source from the authenticated actor.
+    if should_notify:
         if actor.actor_type == "agent" and actor.agent:
             source = actor.agent.name
         elif actor.user:
-            source = actor.user.preferred_name or actor.user.name or "User"
+            source = actor.user.name or "User"
+        else:
+            source = payload.source
+    else:
+        source = payload.source
     memory = BoardGroupMemory(
         board_group_id=group_id,
         content=payload.content,
@@ -611,12 +615,16 @@ async def create_board_group_memory_for_board(
     is_chat = "chat" in tags
     mentions = extract_mentions(payload.content)
     should_notify = is_chat or "broadcast" in tags or "all" in mentions
-    source = payload.source
-    if should_notify and not source:
+    # For chat/notify messages always derive source from the authenticated actor.
+    if should_notify:
         if actor.actor_type == "agent" and actor.agent:
             source = actor.agent.name
         elif actor.user:
-            source = actor.user.preferred_name or actor.user.name or "User"
+            source = actor.user.name or "User"
+        else:
+            source = payload.source
+    else:
+        source = payload.source
     memory = BoardGroupMemory(
         board_group_id=group_id,
         content=payload.content,

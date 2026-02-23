@@ -118,7 +118,6 @@ import {
 import {
   DEFAULT_HUMAN_LABEL,
   resolveHumanActorName,
-  resolveMemberDisplayName,
 } from "@/lib/display-name";
 import { cn } from "@/lib/utils";
 import { usePageActive } from "@/hooks/usePageActive";
@@ -808,11 +807,6 @@ export default function BoardDetailPage() {
     const member =
       membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
     return member ? ["owner", "admin"].includes(member.role) : false;
-  }, [membershipQuery.data]);
-  const currentUserDisplayName = useMemo(() => {
-    const member =
-      membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
-    return resolveMemberDisplayName(member, DEFAULT_HUMAN_LABEL);
   }, [membershipQuery.data]);
   const canWrite = boardAccess.canWrite;
 
@@ -2025,7 +2019,6 @@ export default function BoardDetailPage() {
           {
             content: trimmed,
             tags: ["chat"],
-            source: currentUserDisplayName,
           },
         );
         if (result.status !== 200) {
@@ -2052,7 +2045,7 @@ export default function BoardDetailPage() {
         return { ok: false, error: message };
       }
     },
-    [boardId, currentUserDisplayName, isSignedIn, pushLiveFeed],
+    [boardId, isSignedIn, pushLiveFeed],
   );
 
   const handleSendChat = useCallback(
@@ -4077,7 +4070,7 @@ export default function BoardDetailPage() {
                   <ChatMessageCard
                     key={message.id}
                     message={message}
-                    fallbackSource={currentUserDisplayName}
+                    fallbackSource="User"
                   />
                 ))
               )}
@@ -4144,10 +4137,7 @@ export default function BoardDetailPage() {
                     : null;
                   const authorName =
                     authorAgent?.name ??
-                    resolveHumanActorName(
-                      item.actor_name,
-                      currentUserDisplayName,
-                    );
+                    resolveHumanActorName(item.actor_name, "User");
                   const authorRole = authorAgent
                     ? agentRoleLabel(authorAgent)
                     : null;

@@ -9,7 +9,6 @@
  * User-profile preferences gathered during onboarding.
  */
 export interface BoardOnboardingUserProfile {
-  preferred_name?: string | null;
   pronouns?: string | null;
   timezone?: string | null;
   notes?: string | null;

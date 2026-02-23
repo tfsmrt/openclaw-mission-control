@@ -67,7 +67,7 @@ export default function OnboardingPage() {
     user?.fullName ?? user?.firstName ?? user?.username ?? "";
   const resolvedName = name.trim()
     ? name
-    : (profile?.preferred_name ?? profile?.name ?? clerkFallbackName ?? "");
+    : (profile?.name ?? clerkFallbackName ?? "");
   const resolvedTimezone = timezone.trim()
     ? timezone
     : (profile?.timezone ?? "");
@@ -102,7 +102,6 @@ export default function OnboardingPage() {
       const normalizedName = resolvedName.trim();
       const payload = {
         name: normalizedName,
-        preferred_name: normalizedName,
         timezone: resolvedTimezone.trim(),
       };
       await updateMeMutation.mutateAsync({ data: payload });

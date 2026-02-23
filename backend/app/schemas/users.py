@@ -27,11 +27,6 @@ class UserBase(SQLModel):
         description="Full display name.",
         examples=["Alex Chen"],
     )
-    preferred_name: str | None = Field(
-        default=None,
-        description="Preferred short name used in UI.",
-        examples=["Alex"],
-    )
     pronouns: str | None = Field(
         default=None,
         description="Preferred pronouns.",
@@ -62,7 +57,6 @@ class UserUpdate(SQLModel):
     """Payload for partial user profile updates."""
 
     name: str | None = None
-    preferred_name: str | None = None
     pronouns: str | None = None
     timezone: str | None = None
     notes: str | None = None

@@ -1033,15 +1033,14 @@ async def _creator_names_by_user_id(
         return {}
     rows = list(
         await session.exec(
-            select(User.id, User.preferred_name, User.name).where(
+            select(User.id, User.name).where(
                 col(User.id).in_(user_ids)
             )
         )
     )
     result: dict[UUID, str] = {}
-    for user_id, preferred_name, name in rows:
-        display = (preferred_name or name or "").strip() or "User"
-        result[user_id] = display
+    for user_id, name in rows:
+        result[user_id] = (name or "").strip() or "User"
     return result
 
 
@@ -1595,7 +1594,7 @@ def _comment_actor_name(actor: ActorContext) -> str:
     if actor.actor_type == "agent" and actor.agent:
         return actor.agent.name
     if actor.actor_type == "user" and actor.user:
-        name = (actor.user.preferred_name or actor.user.name or "").strip()
+        name = (actor.user.name or "").strip()
         if name and name.lower() not in ("admin", "user"):
             return name
     return "User"
