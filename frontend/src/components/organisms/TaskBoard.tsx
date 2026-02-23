@@ -431,7 +431,7 @@ export const TaskBoard = memo(function TaskBoard({
             onDragOver={readOnly ? undefined : handleDragOver(column.status)}
             onDragLeave={readOnly ? undefined : handleDragLeave(column.status)}
           >
-            <div className="column-header z-10 rounded-t-xl border border-b-0 border-slate-200 bg-white px-4 py-3 sm:sticky sm:top-0 sm:bg-white/80 sm:backdrop-blur">
+            <div className="column-header z-10 rounded-t-xl border border-b-0 border-slate-200 bg-white px-4 py-3 sm:sticky sm:top-0 sm:bg-white/80 sm:backdrop-blur dark:border-slate-700 dark:bg-slate-800/90 dark:sm:bg-slate-800/80 dark:backdrop-blur">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className={cn("h-2 w-2 rounded-full", column.dot)} />
@@ -488,7 +488,7 @@ export const TaskBoard = memo(function TaskBoard({
                 </div>
               ) : null}
             </div>
-            <div className="rounded-b-xl border border-t-0 border-slate-200 bg-white p-3">
+            <div className="rounded-b-xl border border-t-0 border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
               <div className="space-y-3">
                 {filteredTasks.map((task) => {
                   const dueState = resolveDueState(task);

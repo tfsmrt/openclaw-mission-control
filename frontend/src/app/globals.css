@@ -25,6 +25,170 @@
     0 1px 2px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.06);
 }
 
+/* ── Dark mode ─────────────────────────────────────────────────────────── */
+.dark {
+  color-scheme: dark;
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-muted: #1e293b;
+  --surface-strong: #334155;
+  --border: #334155;
+  --border-strong: #475569;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-quiet: #64748b;
+  --accent: #3b82f6;
+  --accent-strong: #2563eb;
+  --accent-soft: rgba(59, 130, 246, 0.15);
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Dark mode: Tailwind hardcoded-color overrides ──────────────────────
+   These cover components that use Tailwind color classes directly rather
+   than the CSS variables above. Higher specificity (.dark .cls) wins.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* Backgrounds */
+.dark .bg-white           { background-color: #1e293b; }  /* slate-800 */
+.dark .bg-slate-50        { background-color: #0f172a; }  /* slate-950 */
+.dark .bg-slate-100       { background-color: #1e293b; }  /* slate-800 */
+.dark .bg-slate-200       { background-color: #334155; }  /* slate-700 */
+.dark .bg-slate-300       { background-color: #475569; }  /* slate-600 */
+.dark .bg-gray-50         { background-color: #0f172a; }
+.dark .bg-gray-100        { background-color: #1e293b; }
+
+/* Text */
+.dark .text-slate-950,
+.dark .text-slate-900     { color: #f1f5f9; }  /* slate-100 */
+.dark .text-slate-800     { color: #e2e8f0; }  /* slate-200 */
+.dark .text-slate-700     { color: #cbd5e1; }  /* slate-300 */
+.dark .text-slate-600     { color: #94a3b8; }  /* slate-400 */
+.dark .text-slate-500     { color: #94a3b8; }  /* slate-400 */
+.dark .text-slate-400     { color: #64748b; }  /* slate-500 */
+.dark .text-gray-900      { color: #f1f5f9; }
+.dark .text-gray-700      { color: #cbd5e1; }
+.dark .text-gray-500      { color: #94a3b8; }
+
+/* Borders */
+.dark .border-slate-200   { border-color: #334155; }  /* slate-700 */
+.dark .border-slate-100   { border-color: #1e293b; }  /* slate-800 */
+.dark .border-slate-300   { border-color: #475569; }  /* slate-600 */
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }  /* slate-700 — visible but subtle */
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: #475569; }  /* slate-600 */
+.dark .divide-slate-300 > :not([hidden]) ~ :not([hidden]) { border-color: #64748b; }  /* slate-500 */
+
+/* Hover */
+.dark .hover\:bg-white:hover       { background-color: #1e293b; }
+.dark .hover\:bg-slate-50:hover    { background-color: #1e293b; }
+.dark .hover\:bg-slate-100:hover   { background-color: #334155; }
+.dark .hover\:bg-slate-200:hover   { background-color: #475569; }
+.dark .hover\:text-slate-900:hover { color: #f1f5f9; }
+.dark .hover\:text-slate-700:hover { color: #cbd5e1; }
+
+/* Status badge colours — blue */
+.dark .bg-blue-50   { background-color: rgba(30, 58, 138, 0.25); }
+.dark .bg-blue-100  { background-color: rgba(30, 58, 138, 0.35); }
+.dark .text-blue-900 { color: #bfdbfe; }  /* blue-200 */
+.dark .text-blue-800 { color: #93c5fd; }  /* blue-300 */
+.dark .text-blue-700 { color: #60a5fa; }  /* blue-400 */
+.dark .text-blue-600 { color: #60a5fa; }
+.dark .border-blue-200 { border-color: rgba(59, 130, 246, 0.3); }
+
+/* Status badge colours — green */
+.dark .bg-green-50   { background-color: rgba(20, 83, 45, 0.25); }
+.dark .bg-green-100  { background-color: rgba(20, 83, 45, 0.35); }
+.dark .text-green-900 { color: #bbf7d0; }  /* green-200 */
+.dark .text-green-800 { color: #86efac; }  /* green-300 */
+.dark .text-green-700 { color: #4ade80; }  /* green-400 */
+.dark .text-green-600 { color: #4ade80; }
+.dark .border-green-200 { border-color: rgba(34, 197, 94, 0.3); }
+
+/* Status badge colours — yellow/amber */
+.dark .bg-yellow-50   { background-color: rgba(120, 53, 15, 0.2); }
+.dark .bg-yellow-100  { background-color: rgba(120, 53, 15, 0.3); }
+.dark .text-yellow-900 { color: #fef08a; }
+.dark .text-yellow-800 { color: #fde047; }
+.dark .text-yellow-700 { color: #facc15; }
+.dark .bg-amber-50   { background-color: rgba(120, 53, 15, 0.2); }
+.dark .bg-amber-100  { background-color: rgba(120, 53, 15, 0.3); }
+.dark .text-amber-800 { color: #fcd34d; }
+.dark .text-amber-700 { color: #fbbf24; }
+
+/* Status badge colours — red */
+.dark .bg-red-50   { background-color: rgba(127, 29, 29, 0.25); }
+.dark .bg-red-100  { background-color: rgba(127, 29, 29, 0.35); }
+.dark .text-red-900 { color: #fecaca; }
+.dark .text-red-800 { color: #fca5a5; }
+.dark .text-red-700 { color: #f87171; }
+.dark .text-red-600 { color: #f87171; }
+.dark .border-red-200 { border-color: rgba(239, 68, 68, 0.3); }
+
+/* Status badge colours — purple */
+.dark .bg-purple-50   { background-color: rgba(88, 28, 135, 0.25); }
+.dark .bg-purple-100  { background-color: rgba(88, 28, 135, 0.35); }
+.dark .text-purple-900 { color: #e9d5ff; }
+.dark .text-purple-800 { color: #d8b4fe; }
+.dark .text-purple-700 { color: #c084fc; }
+
+/* Status badge colours — orange */
+.dark .bg-orange-50   { background-color: rgba(124, 45, 18, 0.25); }
+.dark .bg-orange-100  { background-color: rgba(124, 45, 18, 0.35); }
+.dark .text-orange-800 { color: #fdba74; }
+.dark .text-orange-700 { color: #fb923c; }
+
+/* Forms & inputs */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-color: #334155;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #64748b; }
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus { border-color: #3b82f6; }
+
+/* Scrollbars */
+.dark ::-webkit-scrollbar       { background: #0f172a; }
+.dark ::-webkit-scrollbar-track { background: #0f172a; }
+.dark ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* Gradient stop overrides (gradients need --tw-gradient-* vars overriding) */
+.dark .from-slate-50  { --tw-gradient-from: #0f172a var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .from-slate-100 { --tw-gradient-from: #1e293b var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .to-slate-50    { --tw-gradient-to: #0f172a var(--tw-gradient-to-position); }
+.dark .to-slate-100   { --tw-gradient-to: #1e293b var(--tw-gradient-to-position); }
+.dark .to-slate-200   { --tw-gradient-to: #334155 var(--tw-gradient-to-position); }
+.dark .via-slate-50   { --tw-gradient-via: #0f172a; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to); }
+
+/* Opacity variants (Tailwind generates separate classes for these) */
+.dark .bg-white\/80,
+.dark .bg-white\/90,
+.dark .bg-white\/95    { background-color: rgba(30, 41, 59, 0.92); }
+.dark .bg-slate-50\/40,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/60  { background-color: rgba(15, 23, 42, 0.6); }
+.dark .bg-slate-100\/50 { background-color: rgba(30, 41, 59, 0.5); }
+
+/* Misc UI */
+.dark .shadow-sm  { box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+.dark .shadow     { box-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.4); }
+.dark .shadow-md  { box-shadow: 0 4px 6px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.4); }
+.dark .shadow-lg  { box-shadow: 0 10px 15px rgba(0,0,0,0.5), 0 4px 6px rgba(0,0,0,0.4); }
+.dark .shadow-xl  { box-shadow: 0 20px 25px rgba(0,0,0,0.5), 0 8px 10px rgba(0,0,0,0.4); }
+.dark .shadow-2xl { box-shadow: 0 25px 50px rgba(0,0,0,0.6); }
+
+html {
+  background: var(--bg);
+}
+
 body {
   @apply font-body;
   background: var(--bg);

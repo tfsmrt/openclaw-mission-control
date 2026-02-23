@@ -93,7 +93,7 @@ export function UserMenu({
       <PopoverContent
         align="end"
         sideOffset={12}
-        className="w-80 overflow-hidden rounded-2xl border border-[color:var(--neutral-200,var(--border))] bg-white/95 p-0 shadow-[0_8px_32px_rgba(10,22,40,0.08)] backdrop-blur"
+        className="w-80 overflow-hidden rounded-2xl border border-[color:var(--neutral-200,var(--border))] bg-white/95 p-0 shadow-[0_8px_32px_rgba(10,22,40,0.08)] backdrop-blur dark:bg-slate-800/95 dark:border-slate-700 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
       >
         <div className="border-b border-[color:var(--neutral-200,var(--border))] px-4 py-3">
           <div className="flex items-center gap-3">

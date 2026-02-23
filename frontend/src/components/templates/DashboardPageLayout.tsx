@@ -66,11 +66,11 @@ export function DashboardPageLayout({
         <DashboardSidebar />
         <main
           ref={mainRef}
-          className={cn("flex-1 overflow-y-auto bg-slate-50", mainClassName)}
+          className={cn("flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-900", mainClassName)}
         >
           <div
             className={cn(
-              "border-b border-slate-200 bg-white",
+              "border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900",
               stickyHeader && "sticky top-0 z-30",
               headerClassName,
             )}
@@ -79,7 +79,7 @@ export function DashboardPageLayout({
               {headerActions ? (
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <h1 className="font-heading text-2xl font-semibold tracking-tight text-slate-900">
+                    <h1 className="font-heading text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                       {title}
                     </h1>
                     {description ? (
@@ -92,7 +92,7 @@ export function DashboardPageLayout({
                 </div>
               ) : (
                 <div>
-                  <h1 className="font-heading text-2xl font-semibold tracking-tight text-slate-900">
+                  <h1 className="font-heading text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                     {title}
                   </h1>
                   {description ? (

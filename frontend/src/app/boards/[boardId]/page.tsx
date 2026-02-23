@@ -3051,15 +3051,15 @@ export default function BoardDetailPage() {
         <DashboardSidebar />
         <main
           className={cn(
-            "flex-1 bg-gradient-to-br from-slate-50 to-slate-100",
+            "flex-1 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-900",
             isSidePanelOpen ? "overflow-hidden" : "overflow-y-auto",
           )}
         >
-          <div className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
+          <div className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <div className="px-8 py-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <h1 className="mt-2 text-2xl font-semibold text-slate-900 tracking-tight">
+                  <h1 className="mt-2 text-2xl font-semibold text-slate-900 tracking-tight dark:text-slate-100">
                     {board?.name ?? "Board"}
                   </h1>
                   <p className="mt-1 text-sm text-slate-500">
