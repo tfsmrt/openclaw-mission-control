@@ -146,7 +146,7 @@ def _actor_display_name(actor: ActorContext) -> str:
     if actor.actor_type == "agent" and actor.agent:
         return actor.agent.name
     if actor.user:
-        return actor.user.preferred_name or actor.user.name or "User"
+        return actor.user.name or "User"
     return "User"
 
 
@@ -280,12 +280,17 @@ async def create_board_memory(
 ) -> BoardMemory:
     """Create a board memory entry and notify chat targets when needed."""
     is_chat = payload.tags is not None and "chat" in payload.tags
-    source = payload.source
-    if is_chat and not source:
+    # For chat messages always derive source from the authenticated actor — never
+    # trust the client-provided value (prevents display-name spoofing).
+    if is_chat:
         if actor.actor_type == "agent" and actor.agent:
             source = actor.agent.name
         elif actor.user:
-            source = actor.user.preferred_name or actor.user.name or "User"
+            source = actor.user.name or "User"
+        else:
+            source = payload.source
+    else:
+        source = payload.source
     memory = BoardMemory(
         board_id=board.id,
         content=payload.content,

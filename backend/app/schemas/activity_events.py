@@ -19,6 +19,8 @@ class ActivityEventRead(SQLModel):
     agent_id: UUID | None
     task_id: UUID | None
     created_at: datetime
+    created_by_user_id: UUID | None = None
+    author_name: str | None = None
 
 
 class ActivityTaskCommentFeedItemRead(SQLModel):

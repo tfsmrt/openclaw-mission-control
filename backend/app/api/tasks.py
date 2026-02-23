@@ -1022,6 +1022,29 @@ def _task_list_statement(
     return statement.order_by(col(Task.created_at).desc())
 
 
+async def _creator_names_by_user_id(
+    session: AsyncSession,
+    user_ids: list[UUID],
+) -> dict[UUID, str]:
+    """Batch-fetch user display names for creator attribution."""
+    from app.models.users import User
+
+    if not user_ids:
+        return {}
+    rows = list(
+        await session.exec(
+            select(User.id, User.preferred_name, User.name).where(
+                col(User.id).in_(user_ids)
+            )
+        )
+    )
+    result: dict[UUID, str] = {}
+    for user_id, preferred_name, name in rows:
+        display = (preferred_name or name or "").strip() or "User"
+        result[user_id] = display
+    return result
+
+
 async def _task_read_page(
     *,
     session: AsyncSession,
@@ -1054,6 +1077,8 @@ async def _task_read_page(
         board_id=board_id,
         task_ids=task_ids,
     )
+    creator_user_ids = list({task.created_by_user_id for task in tasks if task.created_by_user_id})
+    creator_names = await _creator_names_by_user_id(session, creator_user_ids)
 
     output: list[TaskRead] = []
     for task in tasks:
@@ -1074,6 +1099,7 @@ async def _task_read_page(
                     "blocked_by_task_ids": blocked_by,
                     "is_blocked": bool(blocked_by),
                     "custom_field_values": custom_field_values_by_task_id.get(task.id, {}),
+                    "creator_name": creator_names.get(task.created_by_user_id) if task.created_by_user_id else None,
                 },
             ),
         )
@@ -1568,6 +1594,10 @@ def _comment_actor_id(actor: ActorContext) -> UUID | None:
 def _comment_actor_name(actor: ActorContext) -> str:
     if actor.actor_type == "agent" and actor.agent:
         return actor.agent.name
+    if actor.actor_type == "user" and actor.user:
+        name = (actor.user.preferred_name or actor.user.name or "").strip()
+        if name and name.lower() not in ("admin", "user"):
+            return name
     return "User"
 
 
@@ -1755,6 +1785,10 @@ async def _task_read_response(
         board_id=board_id,
         task_ids=[task.id],
     )
+    creator_names = await _creator_names_by_user_id(
+        session,
+        [task.created_by_user_id] if task.created_by_user_id else [],
+    )
     if task.status == "done":
         blocked_ids = []
     return TaskRead.model_validate(task, from_attributes=True).model_copy(
@@ -1765,6 +1799,7 @@ async def _task_read_response(
             "blocked_by_task_ids": blocked_ids,
             "is_blocked": bool(blocked_ids),
             "custom_field_values": custom_field_values_by_task_id.get(task.id, {}),
+            "creator_name": creator_names.get(task.created_by_user_id) if task.created_by_user_id else None,
         },
     )
 
@@ -2230,6 +2265,16 @@ async def _record_task_comment_from_update(
             if update.actor.actor_type == "agent" and update.actor.agent
             else None
         ),
+        created_by_user_id=(
+            update.actor.user.id
+            if update.actor.actor_type == "user" and update.actor.user
+            else None
+        ),
+        author_name=(
+            _comment_actor_name(update.actor)
+            if update.actor.actor_type == "user"
+            else None
+        ),
     )
     session.add(event)
     await session.commit()
@@ -2415,6 +2460,16 @@ async def create_task_comment(
         message=payload.message,
         task_id=task.id,
         agent_id=_comment_actor_id(actor),
+        created_by_user_id=(
+            actor.user.id
+            if actor.actor_type == "user" and actor.user
+            else None
+        ),
+        author_name=(
+            _comment_actor_name(actor)
+            if actor.actor_type == "user"
+            else None
+        ),
     )
     session.add(event)
     await session.commit()

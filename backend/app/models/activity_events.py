@@ -24,3 +24,8 @@ class ActivityEvent(QueryModel, table=True):
     agent_id: UUID | None = Field(default=None, foreign_key="agents.id", index=True)
     task_id: UUID | None = Field(default=None, foreign_key="tasks.id", index=True)
     created_at: datetime = Field(default_factory=utcnow)
+    # Human comment attribution
+    created_by_user_id: UUID | None = Field(
+        default=None, foreign_key="users.id", index=True
+    )
+    author_name: str | None = Field(default=None)  # denormalized for fast reads
