@@ -3051,12 +3051,9 @@ export default function BoardDetailPage() {
       <SignedIn>
         <DashboardSidebar />
         <main
-          className={cn(
-            "flex-1 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-900",
-            isSidePanelOpen ? "overflow-hidden" : "overflow-y-auto",
-          )}
+          className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-900"
         >
-          <div className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="shrink-0 border-b border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <div className="px-8 py-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
@@ -3205,7 +3202,7 @@ export default function BoardDetailPage() {
             </div>
           </div>
 
-          <div className="relative flex gap-6 p-6">
+          <div className="relative flex flex-1 min-h-0 gap-6 p-6 overflow-hidden">
             {isOrgAdmin ? (
               <aside className="flex h-full w-64 flex-col rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
@@ -3269,7 +3266,7 @@ export default function BoardDetailPage() {
               </aside>
             ) : null}
 
-            <div className="min-w-0 flex-1 space-y-6">
+            <div className={cn("min-w-0 flex-1 min-h-0 space-y-6", isSidePanelOpen ? "overflow-hidden" : "overflow-y-auto")}>
               {error && (
                 <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600 shadow-sm">
                   {error}

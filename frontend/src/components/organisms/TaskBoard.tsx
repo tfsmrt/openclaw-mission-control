@@ -367,8 +367,8 @@ export const TaskBoard = memo(function TaskBoard({
       className={cn(
         // Mobile-first: stack columns vertically to avoid horizontal scrolling.
         "grid grid-cols-1 gap-4 overflow-x-hidden pb-6",
-        // Desktop/tablet: switch back to horizontally scrollable kanban columns.
-        "sm:grid-flow-col sm:auto-cols-[minmax(260px,320px)] sm:grid-cols-none sm:overflow-x-auto",
+        // Desktop/tablet: fixed-height horizontally scrollable kanban with per-column scroll.
+        "sm:h-full sm:grid-flow-col sm:auto-cols-[minmax(260px,320px)] sm:grid-cols-none sm:overflow-x-auto sm:pb-0",
       )}
     >
       {columns.map((column) => {
@@ -419,10 +419,10 @@ export const TaskBoard = memo(function TaskBoard({
           <div
             key={column.title}
             className={cn(
-              // On mobile, columns are stacked, so avoid forcing tall fixed heights.
-              "kanban-column min-h-0",
-              // On larger screens, keep columns tall to reduce empty space during drag.
-              "sm:min-h-[calc(100vh-260px)]",
+              // Mobile: stacked, auto height.
+              "kanban-column flex flex-col",
+              // Desktop: fill parent height so task list can scroll independently.
+              "sm:h-full",
               activeColumn === column.status &&
                 !readOnly &&
                 "ring-2 ring-slate-200",
@@ -431,7 +431,7 @@ export const TaskBoard = memo(function TaskBoard({
             onDragOver={readOnly ? undefined : handleDragOver(column.status)}
             onDragLeave={readOnly ? undefined : handleDragLeave(column.status)}
           >
-            <div className="column-header z-10 rounded-t-xl border border-b-0 border-slate-200 bg-white px-4 py-3 sm:sticky sm:top-0 sm:bg-white/80 sm:backdrop-blur dark:border-slate-700 dark:bg-slate-800/90 dark:sm:bg-slate-800/80 dark:backdrop-blur">
+            <div className="column-header shrink-0 z-10 rounded-t-xl border border-b-0 border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800/90">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className={cn("h-2 w-2 rounded-full", column.dot)} />
@@ -488,7 +488,7 @@ export const TaskBoard = memo(function TaskBoard({
                 </div>
               ) : null}
             </div>
-            <div className="rounded-b-xl border border-t-0 border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-b-xl border border-t-0 border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
               <div className="space-y-3">
                 {filteredTasks.map((task) => {
                   const dueState = resolveDueState(task);
