@@ -38,8 +38,7 @@ services:
       AUTH_MODE: ${AUTH_MODE}
       LOCAL_AUTH_TOKEN: ${LOCAL_AUTH_TOKEN}
       RQ_REDIS_URL: redis://localhost:6379/0
-      GATEWAY_DEVICE_ID: ${GATEWAY_DEVICE_ID}
-      GATEWAY_DEVICE_PRIVATE_KEY_PEM: ${GATEWAY_DEVICE_PRIVATE_KEY_PEM}
+      OPENCLAW_GATEWAY_DEVICE_IDENTITY_PATH: /root/.openclaw/identity/mission-control.json
     depends_on:
       db:
         condition: service_healthy
