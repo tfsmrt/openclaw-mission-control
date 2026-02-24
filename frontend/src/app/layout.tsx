@@ -14,8 +14,9 @@ export const metadata: Metadata = {
   title: "OpenClaw Mission Control",
   description: "A calm command center for every task.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
   },
 };
 
