@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -39,6 +40,7 @@ class WorkspaceFileEntry(SQLModel):
     path: str  # relative to workspace root
     is_dir: bool
     size: int | None = None
+    modified_at: str | None = None  # ISO 8601 from file mtime
 
 
 class WorkspaceFileContent(SQLModel):
@@ -148,12 +150,15 @@ def _list_deliverables(root: Path, agent_name: str) -> list[WorkspaceFileEntry]:
                 continue
             if item.is_file():
                 rel = str(item.relative_to(root))
+                stat = item.stat()
+                mtime_iso = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
                 entries.append(
                     WorkspaceFileEntry(
                         name=item.name,
                         path=f"{agent_name}/{rel}",
                         is_dir=False,
-                        size=item.stat().st_size,
+                        size=stat.st_size,
+                        modified_at=mtime_iso,
                     )
                 )
     return entries

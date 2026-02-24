@@ -843,7 +843,7 @@ export default function BoardDetailPage() {
   const [commentsError, setCommentsError] = useState<string | null>(null);
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [postCommentError, setPostCommentError] = useState<string | null>(null);
-  const [workspaceFiles, setWorkspaceFiles] = useState<{ name: string; path: string; is_dir: boolean; size: number | null }[]>([]);
+  const [workspaceFiles, setWorkspaceFiles] = useState<{ name: string; path: string; is_dir: boolean; size: number | null; modified_at: string | null }[]>([]);
   const [isWorkspaceFilesOpen, setIsWorkspaceFilesOpen] = useState(true);
   const [workspaceFileContent, setWorkspaceFileContent] = useState<string | null>(null);
   const [workspaceFileViewPath, setWorkspaceFileViewPath] = useState<string | null>(null);
@@ -2359,7 +2359,7 @@ export default function BoardDetailPage() {
     if (!isSignedIn || !boardId) return;
     try {
       const qs = taskId ? `?task_id=${encodeURIComponent(taskId)}` : "";
-      const res = await customFetch<{ data: { name: string; path: string; is_dir: boolean; size: number | null }[] }>(
+      const res = await customFetch<{ data: { name: string; path: string; is_dir: boolean; size: number | null; modified_at: string | null }[] }>(
         `/api/v1/boards/${boardId}/workspace/files${qs}`,
         { method: "GET" },
       );
@@ -3934,29 +3934,56 @@ export default function BoardDetailPage() {
                   </button>
                 </div>
                 {isWorkspaceFilesOpen && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 space-y-1">
-                    {workspaceFiles.filter((f) => !f.is_dir).map((file) => (
-                      <div key={file.path} className="flex w-full items-center gap-1 rounded px-2 py-1.5 hover:bg-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => void loadWorkspaceFileContent(file.path)}
-                          className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs text-slate-600"
-                        >
-                          <span className="font-mono truncate" title={file.path}>{file.path}</span>
-                          {file.size != null && (
-                            <span className="ml-auto shrink-0 text-slate-400">{Math.ceil(file.size / 1024)}KB</span>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          title="Download"
-                          onClick={() => void downloadWorkspaceFile(file.path)}
-                          className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-                        >
-                          <Download size={12} />
-                        </button>
-                      </div>
-                    ))}
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 space-y-1 dark:border-slate-700 dark:bg-slate-800/50">
+                    {workspaceFiles
+                      .filter((f) => !f.is_dir)
+                      .sort((a, b) => {
+                        const aT = a.modified_at ? new Date(a.modified_at).getTime() : 0;
+                        const bT = b.modified_at ? new Date(b.modified_at).getTime() : 0;
+                        return bT - aT;
+                      })
+                      .map((file, idx) => (
+                        <div key={file.path} className="flex w-full items-start gap-1 rounded px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-700/50">
+                          <button
+                            type="button"
+                            onClick={() => void loadWorkspaceFileContent(file.path)}
+                            className="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
+                          >
+                            {/* Row 1: task ID badge + filename */}
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              {selectedTask && (
+                                <span className="shrink-0 rounded bg-slate-200 px-1 py-px font-mono text-[10px] text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                                  #{selectedTask.id.slice(0, 8)}
+                                </span>
+                              )}
+                              {idx === 0 && (
+                                <span className="shrink-0 rounded bg-emerald-100 px-1 py-px text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                                  latest
+                                </span>
+                              )}
+                              <span className="font-mono text-xs truncate text-slate-600 dark:text-slate-300" title={file.path}>{file.path}</span>
+                            </div>
+                            {/* Row 2: timestamp + size */}
+                            <div className="flex items-center gap-2 pl-0.5">
+                              {file.modified_at && (
+                                <span className="text-[10px] text-slate-400">{formatShortTimestamp(file.modified_at)}</span>
+                              )}
+                              {file.size != null && (
+                                <span className="text-[10px] text-slate-400">{Math.ceil(file.size / 1024)}KB</span>
+                              )}
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            title="Download"
+                            onClick={() => void downloadWorkspaceFile(file.path)}
+                            className="mt-0.5 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+                          >
+                            <Download size={12} />
+                          </button>
+                        </div>
+                      ))
+                    }
                   </div>
                 )}
               </div>
