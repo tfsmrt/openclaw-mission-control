@@ -372,7 +372,7 @@ export const TaskBoard = memo(function TaskBoard({
         // This avoids the CSS Grid circular-reference issue where grid-row:auto means
         // h-full on children resolves to content height instead of container height.
         // overflow-y-hidden: overflow-x:auto implicitly promotes overflow-y:visible→auto; block it.
-        "sm:flex sm:flex-row sm:gap-4 sm:flex-1 sm:min-h-0 sm:overflow-x-auto sm:overflow-y-hidden sm:pb-0",
+        "sm:flex sm:flex-row sm:gap-4 sm:flex-1 sm:min-h-0 sm:overflow-x-auto sm:overflow-y-hidden sm:overscroll-none sm:pb-0",
       )}
     >
       {columns.map((column) => {
