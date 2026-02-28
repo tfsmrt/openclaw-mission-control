@@ -60,10 +60,7 @@ export function DashboardSidebar() {
   return (
     <aside className="flex h-full w-[260px] flex-col border-r border-[color:var(--border)] bg-[color:var(--surface)]">
       <div className="flex-1 px-3 py-4">
-        <p className="px-3 text-xs font-semibold uppercase tracking-wider text-quiet">
-          Navigation
-        </p>
-        <nav className="mt-3 space-y-4 text-sm">
+        <nav className="space-y-4 text-sm">
           <div>
             <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-quiet">
               Overview
