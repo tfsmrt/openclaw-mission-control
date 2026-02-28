@@ -12,10 +12,13 @@ import {
   ChevronDown,
   LayoutDashboard,
   LogOut,
+  Monitor,
+  Moon,
   Plus,
   Server,
   Settings,
   Store,
+  Sun,
   Trello,
 } from "lucide-react";
 
@@ -24,13 +27,54 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useTheme, type Theme } from "@/components/providers/ThemeProvider";
 import { cn } from "@/lib/utils";
+
+const themeOptions: { value: Theme; icon: React.ReactNode; label: string }[] = [
+  { value: "light",  icon: <Sun size={14} />,     label: "Light" },
+  { value: "dark",   icon: <Moon size={14} />,    label: "Dark" },
+  { value: "system", icon: <Monitor size={14} />, label: "System" },
+];
 
 type UserMenuProps = {
   className?: string;
   displayName?: string;
   displayEmail?: string;
 };
+
+function ThemeRow() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <div className="flex items-center justify-between px-3 py-1.5">
+      <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+        Theme
+      </span>
+      <div
+        className="flex items-center gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-0.5"
+        role="group"
+        aria-label="Theme"
+      >
+        {themeOptions.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            title={opt.label}
+            aria-pressed={theme === opt.value}
+            onClick={() => setTheme(opt.value)}
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-md transition-all",
+              theme === opt.value
+                ? "bg-[color:var(--surface)] text-[color:var(--text)] shadow-sm"
+                : "text-[color:var(--text-quiet)] hover:text-[color:var(--text-muted)]",
+            )}
+          >
+            {opt.icon}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function UserMenu({
   className,
@@ -170,6 +214,11 @@ export function UserMenu({
               {item.label}
             </Link>
           ))}
+
+          <div className="my-2 h-px bg-slate-100 dark:bg-slate-700" />
+
+          {/* Theme switcher */}
+          <ThemeRow />
 
           <div className="my-2 h-px bg-slate-100 dark:bg-slate-700" />
 

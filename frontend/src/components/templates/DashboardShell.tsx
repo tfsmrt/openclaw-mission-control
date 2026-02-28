@@ -15,7 +15,6 @@ import { BrandMark } from "@/components/atoms/BrandMark";
 import { OrgSwitcher } from "@/components/organisms/OrgSwitcher";
 import { UserMenu } from "@/components/organisms/UserMenu";
 import { NotificationBell } from "@/components/ui/NotificationBell";
-import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { isOnboardingComplete } from "@/lib/onboarding";
 
 export function DashboardShell({ children }: { children: ReactNode }) {
@@ -86,7 +85,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </SignedIn>
           <SignedIn>
             <div className="flex items-center gap-3 px-6">
-              <ThemeSwitcher />
               <NotificationBell />
               <div className="hidden text-right lg:block">
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
