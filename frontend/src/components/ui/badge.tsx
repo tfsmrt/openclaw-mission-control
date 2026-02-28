@@ -8,14 +8,20 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-[color:var(--surface-muted)] text-strong",
+        default:
+          "bg-[color:var(--surface-muted)] text-[color:var(--text-muted)] border border-[color:var(--border)]",
         outline:
           "border border-[color:var(--border-strong)] text-[color:var(--text-muted)]",
         accent:
           "bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]",
-        success: "bg-[color:rgba(15,118,110,0.14)] text-[color:var(--success)]",
-        warning: "bg-[color:rgba(180,83,9,0.15)] text-[color:var(--warning)]",
-        danger: "bg-[color:rgba(180,35,24,0.15)] text-[color:var(--danger)]",
+        success:
+          "bg-[color:var(--success-soft)] text-[color:var(--success)]",
+        warning:
+          "bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
+        danger:
+          "bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
+        destructive:
+          "bg-[color:var(--destructive)] text-[color:var(--destructive-foreground)]",
       },
     },
     defaultVariants: {
@@ -25,8 +31,7 @@ const badgeVariants = cva(
 );
 
 export interface BadgeProps
-  extends
-    React.HTMLAttributes<HTMLDivElement>,
+  extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
 function Badge({ className, variant, ...props }: BadgeProps) {

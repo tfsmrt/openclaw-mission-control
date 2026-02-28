@@ -6,18 +6,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ring)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         primary:
           "bg-[color:var(--accent)] text-white shadow-sm hover:bg-[color:var(--accent-strong)]",
         secondary:
-          "border border-[color:var(--border)] bg-[color:var(--surface)] text-strong hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]",
+          "border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]",
         outline:
-          "border border-[color:var(--border-strong)] bg-transparent text-strong hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]",
+          "border border-[color:var(--border-strong)] bg-transparent text-[color:var(--text)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]",
         ghost:
-          "bg-transparent text-strong hover:bg-[color:var(--surface-strong)]",
+          "bg-transparent text-[color:var(--text)] hover:bg-[color:var(--surface-strong)]",
+        destructive:
+          "bg-[color:var(--destructive)] text-[color:var(--destructive-foreground)] shadow-sm hover:opacity-90",
+        "destructive-outline":
+          "border border-[color:var(--danger)] bg-transparent text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)]",
       },
       size: {
         sm: "h-9 px-4",
@@ -33,8 +37,7 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends
-    React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {}
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

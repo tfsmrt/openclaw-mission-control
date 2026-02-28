@@ -499,8 +499,8 @@ export const TaskBoard = memo(function TaskBoard({
                       className={cn(
                         "rounded-full border px-2.5 py-1 transition",
                         reviewBucket === option.key
-                          ? "border-slate-900 bg-slate-900 text-white"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
+                          ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:bg-slate-700",
                       )}
                       aria-pressed={reviewBucket === option.key}
                     >
