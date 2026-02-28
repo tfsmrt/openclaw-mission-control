@@ -148,7 +148,7 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
         className={cn(
           "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition",
           "border-[color:var(--border)] bg-[color:var(--surface)] text-quiet hover:border-[color:var(--border-strong)] hover:text-muted",
-          "dark:border-slate-700 dark:hover:text-[color:var(--text-inverse)]",
+          "dark:border-slate-700",
         )}
       >
         <Search className="h-3.5 w-3.5" />

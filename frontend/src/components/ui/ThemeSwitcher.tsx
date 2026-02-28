@@ -16,7 +16,7 @@ export function ThemeSwitcher({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800",
+        "flex items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-0.5",
         className,
       )}
       role="group"
@@ -32,8 +32,8 @@ export function ThemeSwitcher({ className }: { className?: string }) {
           className={cn(
             "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-all",
             theme === opt.value
-              ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
-              : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+              ? "bg-[color:var(--surface)] text-[color:var(--text)] shadow-sm"
+              : "text-quiet hover:text-[color:var(--text)]",
           )}
         >
           {opt.icon}
