@@ -762,9 +762,10 @@ export default function BoardDetailPage() {
       refetchOnMount: "always",
     },
   });
-  const membersQuery = useListOrgMembersApiV1OrganizationsMeMembersGet({
-    query: { enabled: Boolean(isSignedIn) },
-  });
+  const membersQuery = useListOrgMembersApiV1OrganizationsMeMembersGet(
+    undefined,
+    { query: { enabled: Boolean(isSignedIn) } },
+  );
   const orgMembers = useMemo(
     () => (membersQuery.data?.status === 200 ? (membersQuery.data.data.items ?? []) : []),
     [membersQuery.data],
