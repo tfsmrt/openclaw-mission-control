@@ -45,25 +45,20 @@ export function TaskCard({
   const needsLeadReview =
     status === "review" && !isBlocked && !hasPendingApproval;
   const leftBarClassName = isBlocked
-    ? "bg-rose-400"
+    ? "bg-[color:var(--danger)]"
     : hasPendingApproval
-      ? "bg-amber-400"
+      ? "bg-[color:var(--warning)]"
       : needsLeadReview
-        ? "bg-indigo-400"
+        ? "bg-[color:var(--status-review-dot)]"
         : null;
   const priorityBadge = (value?: string) => {
     if (!value) return null;
     const normalized = value.toLowerCase();
-    if (normalized === "high") {
-      return "bg-rose-100 text-rose-700";
-    }
-    if (normalized === "medium") {
-      return "bg-amber-100 text-amber-700";
-    }
-    if (normalized === "low") {
-      return "bg-emerald-100 text-emerald-700";
-    }
-    return "bg-slate-100 text-slate-600";
+    if (normalized === "urgent") return "priority-urgent";
+    if (normalized === "high")   return "priority-high";
+    if (normalized === "medium") return "priority-medium";
+    if (normalized === "low")    return "priority-low";
+    return "priority-low";
   };
 
   const priorityLabel = priority ? priority.toUpperCase() : "MEDIUM";
@@ -72,11 +67,11 @@ export function TaskCard({
   return (
     <div
       className={cn(
-        "group relative cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600",
+        "group relative cursor-pointer rounded-lg border border-[color:var(--border)] bg-surface p-4 shadow-sm transition-all hover:border-[color:var(--border-strong)] hover:shadow-md",
         isDragging && "opacity-60 shadow-none",
-        hasPendingApproval && "border-amber-200 bg-amber-50/40",
-        isBlocked && "border-rose-200 bg-rose-50/50",
-        needsLeadReview && "border-indigo-200 bg-indigo-50/30",
+        hasPendingApproval && "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]",
+        isBlocked && "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]",
+        needsLeadReview && "border-[color:var(--status-review-border)] bg-[color:var(--status-review-bg)]",
       )}
       draggable={draggable}
       onDragStart={onDragStart}
@@ -101,24 +96,24 @@ export function TaskCard({
       ) : null}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-2">
-          <p className="text-sm font-medium text-slate-900 line-clamp-2 break-words">
+          <p className="text-sm font-medium text-strong line-clamp-2 break-words">
             {title}
           </p>
           {isBlocked ? (
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-rose-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-danger">
+              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--danger)]" />
               Blocked{blockedByCount > 0 ? ` · ${blockedByCount}` : ""}
             </div>
           ) : null}
           {hasPendingApproval ? (
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-warning">
+              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--warning)]" />
               Approval needed · {approvalsPendingCount}
             </div>
           ) : null}
           {needsLeadReview ? (
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[color:var(--status-review-text)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--status-review-dot)]" />
               Waiting for lead review
             </div>
           ) : null}
@@ -127,7 +122,7 @@ export function TaskCard({
               {visibleTags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                  className="tag-chip inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
                 >
                   <span
                     className="h-1.5 w-1.5 rounded-full"
@@ -137,7 +132,7 @@ export function TaskCard({
                 </span>
               ))}
               {tags.length > visibleTags.length ? (
-                <span className="text-[10px] font-semibold text-slate-500">
+                <span className="text-[10px] font-semibold text-muted">
                   +{tags.length - visibleTags.length}
                 </span>
               ) : null}
@@ -148,29 +143,29 @@ export function TaskCard({
           <span
             className={cn(
               "inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
-              priorityBadge(priority) ?? "bg-slate-100 text-slate-600",
+              priorityBadge(priority) ?? "priority-low",
             )}
           >
             {priorityLabel}
           </span>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+      <div className="mt-3 flex items-center justify-between text-xs text-muted">
         <div className="flex items-center gap-2">
-          <UserCircle className="h-4 w-4 text-slate-400" />
+          <UserCircle className="h-4 w-4 text-quiet" />
           <span>{assignee ?? "Unassigned"}</span>
         </div>
         {due ? (
           <div
             className={cn(
               "flex items-center gap-2",
-              isOverdue && "font-semibold text-rose-600",
+              isOverdue && "font-semibold text-danger",
             )}
           >
             <CalendarClock
               className={cn(
                 "h-4 w-4",
-                isOverdue ? "text-rose-500" : "text-slate-400",
+                isOverdue ? "text-[color:var(--danger)]" : "text-quiet",
               )}
             />
             <span>{due}</span>
@@ -178,7 +173,7 @@ export function TaskCard({
         ) : null}
       </div>
       {createdBy ? (
-        <p className="mt-1.5 text-[10px] text-slate-400">by {createdBy}</p>
+        <p className="mt-1.5 text-[10px] text-quiet">by {createdBy}</p>
       ) : null}
     </div>
   );

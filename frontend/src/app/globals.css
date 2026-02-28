@@ -5,91 +5,253 @@
 :root {
   color-scheme: light;
 
-  /* ── Core palette ── */
-  --bg: #f8fafc;
-  --surface: #ffffff;
-  --surface-muted: #f1f5f9;
-  --surface-strong: #e2e8f0;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --text-quiet: #94a3b8;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-soft: rgba(37, 99, 235, 0.12);
-  --success: #16a34a;
-  --success-soft: rgba(22, 163, 74, 0.12);
-  --warning: #d97706;
-  --warning-soft: rgba(217, 119, 6, 0.12);
-  --danger: #dc2626;
-  --danger-soft: rgba(220, 38, 38, 0.12);
-  --shadow-panel: 0 1px 3px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.08);
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.06);
+  /* ═══════════════════════════════════════════════════════════════
+     DESIGN TOKENS — change these to retheme the entire app
+     ═══════════════════════════════════════════════════════════════ */
 
-  /* ── shadcn/ui standard variables ── */
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  --input: #e2e8f0;
-  --ring: #2563eb;
-  --radius: 0.75rem;
+  /* ── Surfaces & backgrounds ── */
+  --bg:               #f8fafc;   /* page background */
+  --surface:          #ffffff;   /* card / panel background */
+  --surface-muted:    #f1f5f9;   /* subtle tinted background */
+  --surface-strong:   #e2e8f0;   /* stronger tinted bg (hover states) */
+  --surface-overlay:  rgba(255,255,255,0.92); /* floating elements */
+
+  /* ── Borders ── */
+  --border:           #e2e8f0;   /* default border */
+  --border-strong:    #cbd5e1;   /* emphasized border */
+  --border-focus:     #2563eb;   /* focus ring border */
+
+  /* ── Typography ── */
+  --text:             #0f172a;   /* body text */
+  --text-muted:       #64748b;   /* secondary text */
+  --text-quiet:       #94a3b8;   /* placeholder / tertiary text */
+  --text-inverse:     #ffffff;   /* text on dark/accent backgrounds */
+
+  /* ── Accent / Primary ── */
+  --accent:           #2563eb;
+  --accent-strong:    #1d4ed8;
+  --accent-soft:      rgba(37, 99, 235, 0.10);
+  --accent-text:      #ffffff;   /* text on accent bg */
+
+  /* ── Semantic: Info (blue) ── */
+  --info:             #2563eb;
+  --info-strong:      #1d4ed8;
+  --info-soft:        rgba(37, 99, 235, 0.10);
+  --info-text:        #1e40af;   /* readable text on info-soft bg */
+  --info-border:      rgba(37, 99, 235, 0.25);
+
+  /* ── Semantic: Success (green) ── */
+  --success:          #16a34a;
+  --success-strong:   #15803d;
+  --success-soft:     rgba(22, 163, 74, 0.10);
+  --success-text:     #15803d;
+  --success-border:   rgba(22, 163, 74, 0.25);
+
+  /* ── Semantic: Warning (amber) ── */
+  --warning:          #d97706;
+  --warning-strong:   #b45309;
+  --warning-soft:     rgba(217, 119, 6, 0.10);
+  --warning-text:     #92400e;
+  --warning-border:   rgba(217, 119, 6, 0.25);
+
+  /* ── Semantic: Danger / Destructive (red) ── */
+  --danger:           #dc2626;
+  --danger-strong:    #b91c1c;
+  --danger-soft:      rgba(220, 38, 38, 0.10);
+  --danger-text:      #991b1b;
+  --danger-border:    rgba(220, 38, 38, 0.25);
+  --destructive:      #dc2626;
+  --destructive-fg:   #ffffff;
+
+  /* ── Kanban status colors ── */
+  --status-todo-dot:      #94a3b8;
+  --status-todo-bg:       #f1f5f9;
+  --status-todo-text:     #475569;
+  --status-todo-border:   #e2e8f0;
+  --status-todo-hover-bg: #e2e8f0;
+  --status-todo-hover-border: #94a3b8;
+
+  --status-inprogress-dot:        #a855f7;
+  --status-inprogress-bg:         rgba(168, 85, 247, 0.10);
+  --status-inprogress-text:       #7e22ce;
+  --status-inprogress-border:     rgba(168, 85, 247, 0.25);
+  --status-inprogress-hover-bg:   rgba(168, 85, 247, 0.15);
+  --status-inprogress-hover-border: rgba(168, 85, 247, 0.5);
+
+  --status-review-dot:        #6366f1;
+  --status-review-bg:         rgba(99, 102, 241, 0.10);
+  --status-review-text:       #3730a3;
+  --status-review-border:     rgba(99, 102, 241, 0.25);
+  --status-review-hover-bg:   rgba(99, 102, 241, 0.15);
+  --status-review-hover-border: rgba(99, 102, 241, 0.5);
+
+  --status-done-dot:        #22c55e;
+  --status-done-bg:         rgba(34, 197, 94, 0.10);
+  --status-done-text:       #15803d;
+  --status-done-border:     rgba(34, 197, 94, 0.25);
+  --status-done-hover-bg:   rgba(34, 197, 94, 0.15);
+  --status-done-hover-border: rgba(34, 197, 94, 0.5);
+
+  /* ── Priority colors ── */
+  --priority-urgent-bg:   rgba(220, 38, 38, 0.10);
+  --priority-urgent-text: #991b1b;
+  --priority-high-bg:     rgba(217, 119, 6, 0.10);
+  --priority-high-text:   #92400e;
+  --priority-medium-bg:   rgba(37, 99, 235, 0.10);
+  --priority-medium-text: #1e40af;
+  --priority-low-bg:      #f1f5f9;
+  --priority-low-text:    #475569;
+
+  /* ── Tag colors ── */
+  --tag-bg:     #ffffff;
+  --tag-text:   #374151;
+  --tag-border: #e2e8f0;
+
+  /* ── Shadows ── */
+  --shadow-panel: 0 1px 3px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-card:  0 1px 2px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.06);
+  --shadow-float: 0 8px 24px rgba(15, 23, 42, 0.12);
+
+  /* ── shadcn/ui compatibility ── */
+  --background:          #f8fafc;
+  --foreground:          #0f172a;
+  --card:                #ffffff;
+  --card-foreground:     #0f172a;
+  --popover:             #ffffff;
+  --popover-foreground:  #0f172a;
+  --primary:             #2563eb;
+  --primary-foreground:  #ffffff;
+  --secondary:           #f1f5f9;
+  --secondary-foreground:#0f172a;
+  --muted:               #f1f5f9;
+  --muted-foreground:    #64748b;
+  --input:               #e2e8f0;
+  --ring:                #2563eb;
+  --radius:              0.75rem;
 }
 
 /* ── Dark mode ─────────────────────────────────────────────────────────── */
 .dark {
   color-scheme: dark;
 
-  /* ── Core palette ── */
-  --bg: #0f172a;
-  --surface: #1e293b;
-  --surface-muted: #0f172a;
-  --surface-strong: #334155;
-  --border: #334155;
-  --border-strong: #475569;
-  --text: #f1f5f9;
-  --text-muted: #94a3b8;
-  --text-quiet: #64748b;
-  --accent: #3b82f6;
-  --accent-strong: #2563eb;
-  --accent-soft: rgba(59, 130, 246, 0.18);
-  --success: #22c55e;
-  --success-soft: rgba(34, 197, 94, 0.15);
-  --warning: #f59e0b;
-  --warning-soft: rgba(245, 158, 11, 0.15);
-  --danger: #f87171;
-  --danger-soft: rgba(248, 113, 113, 0.15);
-  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
+  /* ── Surfaces & backgrounds ── */
+  --bg:               #0f172a;
+  --surface:          #1e293b;
+  --surface-muted:    #0f172a;
+  --surface-strong:   #334155;
+  --surface-overlay:  rgba(30, 41, 59, 0.96);
 
-  /* ── shadcn/ui standard variables ── */
-  --background: #0f172a;
-  --foreground: #f1f5f9;
-  --card: #1e293b;
-  --card-foreground: #f1f5f9;
-  --popover: #1e293b;
-  --popover-foreground: #f1f5f9;
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #f1f5f9;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --input: #334155;
-  --ring: #3b82f6;
+  /* ── Borders ── */
+  --border:           #334155;
+  --border-strong:    #475569;
+  --border-focus:     #3b82f6;
+
+  /* ── Typography ── */
+  --text:             #f1f5f9;
+  --text-muted:       #94a3b8;
+  --text-quiet:       #64748b;
+  --text-inverse:     #0f172a;
+
+  /* ── Accent / Primary ── */
+  --accent:           #3b82f6;
+  --accent-strong:    #2563eb;
+  --accent-soft:      rgba(59, 130, 246, 0.18);
+  --accent-text:      #ffffff;
+
+  /* ── Semantic: Info ── */
+  --info:             #60a5fa;
+  --info-strong:      #3b82f6;
+  --info-soft:        rgba(59, 130, 246, 0.15);
+  --info-text:        #93c5fd;
+  --info-border:      rgba(59, 130, 246, 0.3);
+
+  /* ── Semantic: Success ── */
+  --success:          #4ade80;
+  --success-strong:   #22c55e;
+  --success-soft:     rgba(34, 197, 94, 0.15);
+  --success-text:     #86efac;
+  --success-border:   rgba(34, 197, 94, 0.3);
+
+  /* ── Semantic: Warning ── */
+  --warning:          #fbbf24;
+  --warning-strong:   #f59e0b;
+  --warning-soft:     rgba(245, 158, 11, 0.15);
+  --warning-text:     #fcd34d;
+  --warning-border:   rgba(245, 158, 11, 0.3);
+
+  /* ── Semantic: Danger ── */
+  --danger:           #f87171;
+  --danger-strong:    #ef4444;
+  --danger-soft:      rgba(248, 113, 113, 0.15);
+  --danger-text:      #fca5a5;
+  --danger-border:    rgba(248, 113, 113, 0.3);
+  --destructive:      #ef4444;
+  --destructive-fg:   #ffffff;
+
+  /* ── Kanban status colors ── */
+  --status-todo-dot:        #64748b;
+  --status-todo-bg:         rgba(71, 85, 105, 0.18);
+  --status-todo-text:       #94a3b8;
+  --status-todo-border:     rgba(71, 85, 105, 0.35);
+  --status-todo-hover-bg:   rgba(71, 85, 105, 0.28);
+  --status-todo-hover-border: rgba(100, 116, 139, 0.5);
+
+  --status-inprogress-dot:        #c084fc;
+  --status-inprogress-bg:         rgba(168, 85, 247, 0.15);
+  --status-inprogress-text:       #d8b4fe;
+  --status-inprogress-border:     rgba(168, 85, 247, 0.3);
+  --status-inprogress-hover-bg:   rgba(168, 85, 247, 0.22);
+  --status-inprogress-hover-border: rgba(168, 85, 247, 0.5);
+
+  --status-review-dot:        #818cf8;
+  --status-review-bg:         rgba(99, 102, 241, 0.15);
+  --status-review-text:       #a5b4fc;
+  --status-review-border:     rgba(99, 102, 241, 0.3);
+  --status-review-hover-bg:   rgba(99, 102, 241, 0.22);
+  --status-review-hover-border: rgba(99, 102, 241, 0.5);
+
+  --status-done-dot:        #4ade80;
+  --status-done-bg:         rgba(34, 197, 94, 0.15);
+  --status-done-text:       #86efac;
+  --status-done-border:     rgba(34, 197, 94, 0.3);
+  --status-done-hover-bg:   rgba(34, 197, 94, 0.22);
+  --status-done-hover-border: rgba(34, 197, 94, 0.5);
+
+  /* ── Priority colors ── */
+  --priority-urgent-bg:   rgba(248, 113, 113, 0.15);
+  --priority-urgent-text: #fca5a5;
+  --priority-high-bg:     rgba(251, 191, 36, 0.15);
+  --priority-high-text:   #fcd34d;
+  --priority-medium-bg:   rgba(96, 165, 250, 0.15);
+  --priority-medium-text: #93c5fd;
+  --priority-low-bg:      rgba(71, 85, 105, 0.18);
+  --priority-low-text:    #94a3b8;
+
+  /* ── Tag colors ── */
+  --tag-bg:     #1e293b;
+  --tag-text:   #cbd5e1;
+  --tag-border: #334155;
+
+  /* ── Shadows ── */
+  --shadow-panel: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-card:  0 1px 2px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.3);
+  --shadow-float: 0 8px 24px rgba(0,0,0,0.5);
+
+  /* ── shadcn/ui compatibility ── */
+  --background:          #0f172a;
+  --foreground:          #f1f5f9;
+  --card:                #1e293b;
+  --card-foreground:     #f1f5f9;
+  --popover:             #1e293b;
+  --popover-foreground:  #f1f5f9;
+  --primary:             #3b82f6;
+  --primary-foreground:  #ffffff;
+  --secondary:           #1e293b;
+  --secondary-foreground:#f1f5f9;
+  --muted:               #1e293b;
+  --muted-foreground:    #94a3b8;
+  --input:               #334155;
+  --ring:                #3b82f6;
 }
 
 /* ── Dark mode: Tailwind hardcoded-color overrides ──────────────────────
@@ -281,18 +443,22 @@ body {
 }
 
 @layer utilities {
-  .bg-app {
-    background: var(--bg);
-  }
-  .text-strong {
-    color: var(--text);
-  }
-  .text-muted {
-    color: var(--text-muted);
-  }
-  .text-quiet {
-    color: var(--text-quiet);
-  }
+  /* ── Surfaces ── */
+  .bg-app           { background: var(--bg); }
+  .bg-surface       { background: var(--surface); }
+  .bg-surface-muted { background: var(--surface-muted); }
+  .bg-surface-strong{ background: var(--surface-strong); }
+
+  /* ── Typography ── */
+  .text-strong  { color: var(--text); }
+  .text-muted   { color: var(--text-muted); }
+  .text-quiet   { color: var(--text-quiet); }
+
+  /* ── Borders ── */
+  .border-base   { border-color: var(--border); }
+  .border-strong { border-color: var(--border-strong); }
+
+  /* ── Surface compounds ── */
   .surface-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -307,24 +473,56 @@ body {
     background: var(--surface-muted);
     border: 1px solid var(--border);
   }
-  .border-strong {
-    border-color: var(--border-strong);
+
+  /* ── Semantic: Info ── */
+  .bg-info-soft    { background: var(--info-soft); }
+  .text-info       { color: var(--info-text); }
+  .border-info     { border-color: var(--info-border); }
+
+  /* ── Semantic: Success ── */
+  .bg-success-soft  { background: var(--success-soft); }
+  .text-success     { color: var(--success-text); }
+  .border-success   { border-color: var(--success-border); }
+
+  /* ── Semantic: Warning ── */
+  .bg-warning-soft  { background: var(--warning-soft); }
+  .text-warning     { color: var(--warning-text); }
+  .border-warning   { border-color: var(--warning-border); }
+
+  /* ── Semantic: Danger ── */
+  .bg-danger-soft   { background: var(--danger-soft); }
+  .text-danger      { color: var(--danger); }
+  .border-danger    { border-color: var(--danger-border); }
+
+  /* ── Kanban status badges ── */
+  .status-todo       { background: var(--status-todo-bg); color: var(--status-todo-text); border-color: var(--status-todo-border); }
+  .status-inprogress { background: var(--status-inprogress-bg); color: var(--status-inprogress-text); border-color: var(--status-inprogress-border); }
+  .status-review     { background: var(--status-review-bg); color: var(--status-review-text); border-color: var(--status-review-border); }
+  .status-done       { background: var(--status-done-bg); color: var(--status-done-text); border-color: var(--status-done-border); }
+
+  /* ── Priority badges ── */
+  .priority-urgent  { background: var(--priority-urgent-bg); color: var(--priority-urgent-text); }
+  .priority-high    { background: var(--priority-high-bg);   color: var(--priority-high-text); }
+  .priority-medium  { background: var(--priority-medium-bg); color: var(--priority-medium-text); }
+  .priority-low     { background: var(--priority-low-bg);    color: var(--priority-low-text); }
+
+  /* ── Tags ── */
+  .tag-chip {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    border: 1px solid var(--tag-border);
   }
-  .animate-fade-in-up {
-    animation: fade-in-up 0.6s ease-out both;
-  }
-  .animate-fade-in {
-    animation: fade-in 0.4s ease-out both;
-  }
-  .animate-float {
-    animation: float-slow 6s ease-in-out infinite;
-  }
-  .animate-progress-shimmer {
-    animation: progress-shimmer 1.8s linear infinite;
-  }
-  .shadow-lush {
-    box-shadow: var(--shadow-panel);
-  }
+
+  /* ── Animations ── */
+  .animate-fade-in-up      { animation: fade-in-up 0.6s ease-out both; }
+  .animate-fade-in         { animation: fade-in 0.4s ease-out both; }
+  .animate-float           { animation: float-slow 6s ease-in-out infinite; }
+  .animate-progress-shimmer{ animation: progress-shimmer 1.8s linear infinite; }
+
+  /* ── Shadows ── */
+  .shadow-lush  { box-shadow: var(--shadow-panel); }
+  .shadow-float { box-shadow: var(--shadow-float); }
+
   .bg-landing-grid {
     background-image:
       linear-gradient(to right, rgba(12, 17, 29, 0.08) 1px, transparent 1px),
