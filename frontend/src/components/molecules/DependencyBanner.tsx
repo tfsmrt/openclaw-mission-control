@@ -49,9 +49,9 @@ export function DependencyBanner({
               className={cn(
                 "w-full rounded-lg border px-3 py-2 text-left transition",
                 isBlocking
-                  ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] hover:bg-[color:var(--danger-soft)]/40"
+                  ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] hover:bg-[color:var(--danger-soft)]"
                   : isDone
-                    ? "border-emerald-200 bg-[color:var(--success-soft)] hover:bg-[color:var(--success-soft)]/40"
+                    ? "border-emerald-200 bg-[color:var(--success-soft)] hover:bg-[color:var(--success-soft)]"
                     : "border-[color:var(--border)] bg-[color:var(--surface)] hover:bg-[color:var(--surface-muted)]",
                 dependency.disabled && "cursor-not-allowed opacity-60",
               )}

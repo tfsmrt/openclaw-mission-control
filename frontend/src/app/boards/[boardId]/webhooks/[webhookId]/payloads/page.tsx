@@ -204,7 +204,7 @@ export default function WebhookPayloadsPage() {
                   Source IP: <code>{payload.source_ip ?? "not provided"}</code>
                 </p>
               </div>
-              <pre className="max-h-96 overflow-auto rounded-md bg-[color:var(--text)]/95 p-3 text-xs text-[color:var(--text-inverse)]">
+              <pre className="max-h-96 overflow-auto rounded-md bg-[color:var(--surface-strong)] p-3 text-xs text-[color:var(--text-inverse)]">
                 {stringifyPayload(payload.payload)}
               </pre>
             </div>

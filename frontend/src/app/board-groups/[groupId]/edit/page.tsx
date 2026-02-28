@@ -344,7 +344,7 @@ export default function EditBoardGroupPage() {
             disabled={isLoading || !baseGroup}
           />
 
-          <div className="max-h-64 overflow-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/40">
+          <div className="max-h-64 overflow-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]">
             {boardsLoading && boards.length === 0 ? (
               <div className="px-4 py-6 text-sm text-quiet">
                 Loading boards…

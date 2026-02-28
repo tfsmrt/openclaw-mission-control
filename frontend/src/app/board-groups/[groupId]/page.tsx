@@ -105,7 +105,7 @@ const canWriteGroupBoards = (
 
 function GroupChatMessageCard({ message }: { message: BoardGroupMemoryRead }) {
   return (
-    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/60 p-4">
+    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-strong">
           {message.source ?? "User"}
@@ -1029,7 +1029,7 @@ export default function BoardGroupDetailPage() {
                                     pathname: `/boards/${item.board.id}`,
                                     query: { taskId: task.id },
                                   }}
-                                  className="block rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)]/40 p-3 transition hover:border-[color:var(--info-border)] hover:bg-[color:var(--info-soft)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                  className="block rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 transition hover:border-[color:var(--info-border)] hover:bg-[color:var(--info-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                                   title="Open task on board"
                                 >
                                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1089,7 +1089,7 @@ export default function BoardGroupDetailPage() {
       </SignedIn>
       {isChatOpen || isNotesOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-[color:var(--text)]/20"
+          className="fixed inset-0 z-40 bg-black/30"
           onClick={() => {
             setIsChatOpen(false);
             setChatError(null);

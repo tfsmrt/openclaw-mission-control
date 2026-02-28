@@ -121,7 +121,7 @@ export function NotificationBell() {
                   className={cn(
                     "flex w-full items-start gap-3 border-b px-4 py-3 text-left transition last:border-b-0",
                     "border-[color:var(--border)] hover:bg-[color:var(--surface-muted)]",
-                    !n.read && "bg-[color:var(--info-soft)]/60",
+                    !n.read && "bg-[color:var(--info-soft)]",
                   )}
                 >
                   <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-strong)]">

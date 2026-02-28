@@ -245,7 +245,7 @@ export function MembersInvitesTable({
       cellClassName="px-5 py-4"
       rowClassName={(row) =>
         row.original.kind === "invite"
-          ? "border-t border-[color:var(--border)] bg-[color:var(--surface-muted)]/60"
+          ? "border-t border-[color:var(--border)] bg-[color:var(--surface-muted)]"
           : "border-t border-[color:var(--border)] hover:bg-[color:var(--surface-muted)]"
       }
     />

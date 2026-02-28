@@ -241,7 +241,7 @@ export default function SettingsPage() {
             </form>
           </section>
 
-          <section className="rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/70 p-6 shadow-sm">
+          <section className="rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-6 shadow-sm">
             <h2 className="text-base font-semibold text-danger">
               Delete account
             </h2>

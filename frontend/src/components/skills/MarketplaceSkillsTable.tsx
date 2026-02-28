@@ -61,16 +61,16 @@ function riskPillClassName(risk: string | null | undefined) {
       return "bg-[color:rgba(16,185,129,0.16)] text-success border border-emerald-200/70";
     case "medium":
     case "moderate":
-      return "bg-[color:rgba(245,158,11,0.16)] text-warning border border-[color:var(--warning-border)]/70";
+      return "bg-[color:rgba(245,158,11,0.16)] text-warning border border-[color:var(--warning-border)]";
     case "elevated":
-      return "bg-[color:rgba(245,158,11,0.16)] text-warning border border-[color:var(--warning-border)]/70";
+      return "bg-[color:rgba(245,158,11,0.16)] text-warning border border-[color:var(--warning-border)]";
     case "high":
     case "critical":
-      return "bg-[color:rgba(244,63,94,0.16)] text-danger border border-[color:var(--danger-border)]/70";
+      return "bg-[color:rgba(244,63,94,0.16)] text-danger border border-[color:var(--danger-border)]";
     case "unknown":
-      return "bg-[color:rgba(148,163,184,0.16)] text-muted border border-[color:var(--border)]/80";
+      return "bg-[color:rgba(148,163,184,0.16)] text-muted border border-[color:var(--border)]";
     default:
-      return "bg-[color:rgba(99,102,241,0.16)] text-info border border-[color:var(--info-border)]/70";
+      return "bg-[color:rgba(99,102,241,0.16)] text-info border border-[color:var(--info-border)]";
   }
 }
 

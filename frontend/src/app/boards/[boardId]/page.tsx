@@ -633,7 +633,7 @@ const ChatMessageCard = memo(function ChatMessageCard({
 }) {
   const sourceLabel = resolveHumanActorName(message.source, fallbackSource);
   return (
-    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/60 p-4">
+    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-strong">{sourceLabel}</p>
         <span className="text-xs text-quiet">
@@ -674,7 +674,7 @@ const LiveFeedCard = memo(function LiveFeedCard({
       className={cn(
         "rounded-xl border p-3 transition-colors duration-300",
         isNew
-          ? "border-[color:var(--info-border)] bg-[color:var(--info-soft)]/70 shadow-sm hover:border-[color:var(--info-border)] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:slide-in-from-right-2 motion-safe:duration-300"
+          ? "border-[color:var(--info-border)] bg-[color:var(--info-soft)] shadow-sm hover:border-[color:var(--info-border)] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:slide-in-from-right-2 motion-safe:duration-300"
           : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--border-strong)]",
       )}
     >
@@ -3152,7 +3152,7 @@ export default function BoardDetailPage() {
                       className={cn(
                         "h-9 w-9 p-0",
                         isAgentsPaused
-                          ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/60 text-warning hover:border-[color:var(--warning-border)] hover:bg-[color:var(--warning-soft)] hover:text-warning"
+                          ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-warning hover:border-[color:var(--warning-border)] hover:bg-[color:var(--warning-soft)] hover:text-warning"
                           : "",
                       )}
                       aria-label={
@@ -3352,7 +3352,7 @@ export default function BoardDetailPage() {
                                 {groupSnapshot.boards.map((item) => (
                                   <div
                                     key={item.board.id}
-                                    className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/40 p-4"
+                                    className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4"
                                   >
                                     <button
                                       type="button"
@@ -3644,7 +3644,7 @@ export default function BoardDetailPage() {
       </SignedIn>
       {isDetailOpen || isChatOpen || isLiveFeedOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-[color:var(--text)]/20"
+          className="fixed inset-0 z-40 bg-black/30"
           onClick={() => {
             if (isChatOpen) {
               closeBoardChat();
@@ -3961,7 +3961,7 @@ export default function BoardDetailPage() {
                         return bT - aT;
                       })
                       .map((file, idx) => (
-                        <div key={file.path} className="flex w-full items-start gap-1 rounded px-2 py-1.5 hover:bg-[color:var(--surface-strong)] dark:hover:bg-[color:var(--surface-strong)]/50">
+                        <div key={file.path} className="flex w-full items-start gap-1 rounded px-2 py-1.5 hover:bg-[color:var(--surface-strong)] dark:hover:bg-[color:var(--surface-strong)]">
                           <button
                             type="button"
                             onClick={() => void loadWorkspaceFileContent(file.path)}

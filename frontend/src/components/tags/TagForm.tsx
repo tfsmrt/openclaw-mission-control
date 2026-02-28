@@ -104,7 +104,7 @@ export function TagForm({
       className="space-y-6 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm"
     >
       <div className="space-y-5">
-        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/40 p-4">
+        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-quiet">
