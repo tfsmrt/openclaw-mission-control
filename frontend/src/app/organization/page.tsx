@@ -747,8 +747,7 @@ export default function OrganizationPage() {
                   {isOwner ? (
                     <Button
                       type="button"
-                      variant="outline"
-                      className="border-rose-200 text-rose-600 hover:border-rose-300 hover:text-rose-700"
+                      variant="destructive-outline"
                       onClick={() => {
                         deleteOrganizationMutation.reset();
                         setDeleteOrgOpen(true);
