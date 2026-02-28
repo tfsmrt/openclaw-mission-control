@@ -2344,7 +2344,7 @@ export default function BoardDetailPage() {
   const filteredTasks = useMemo(() => {
     if (!selectedFilter) return tasks;
     if (selectedFilter.type === "agent")
-      return tasks.filter((t) => t.assigned_to_agent_id === selectedFilter.id);
+      return tasks.filter((t) => t.assigned_agent_id === selectedFilter.id);
     return tasks.filter((t) => t.created_by_user_id === selectedFilter.id);
   }, [tasks, selectedFilter]);
 
