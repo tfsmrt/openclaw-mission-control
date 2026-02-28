@@ -14,6 +14,7 @@ import {
   LogOut,
   Monitor,
   Moon,
+  Palette,
   Plus,
   Server,
   Settings,
@@ -31,9 +32,9 @@ import { useTheme, type Theme } from "@/components/providers/ThemeProvider";
 import { cn } from "@/lib/utils";
 
 const themeOptions: { value: Theme; icon: React.ReactNode; label: string }[] = [
+  { value: "system", icon: <Monitor size={14} />, label: "System" },
   { value: "light",  icon: <Sun size={14} />,     label: "Light" },
   { value: "dark",   icon: <Moon size={14} />,    label: "Dark" },
-  { value: "system", icon: <Monitor size={14} />, label: "System" },
 ];
 
 type UserMenuProps = {
@@ -46,9 +47,12 @@ function ThemeRow() {
   const { theme, setTheme } = useTheme();
   return (
     <div className="flex items-center justify-between px-3 py-1.5">
-      <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-        Theme
-      </span>
+      <div className="flex items-center gap-2">
+        <Palette className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          Theme
+        </span>
+      </div>
       <div
         className="flex items-center gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-0.5"
         role="group"
