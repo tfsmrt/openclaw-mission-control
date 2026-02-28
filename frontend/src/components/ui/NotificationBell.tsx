@@ -68,7 +68,7 @@ export function NotificationBell() {
         className={cn(
           "relative flex h-9 w-9 items-center justify-center rounded-lg border transition",
           "border-[color:var(--border)] text-quiet hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-muted)] hover:text-muted",
-          "dark:border-slate-700 dark:hover:bg-[color:var(--text)] dark:hover:text-[color:var(--text-inverse)]",
+          "dark:border-slate-700",
           open && "border-[color:var(--border-strong)] bg-[color:var(--surface-muted)]",
         )}
         aria-label="Notifications"
@@ -98,7 +98,7 @@ export function NotificationBell() {
               <button
                 type="button"
                 onClick={markAllRead}
-                className="flex items-center gap-1 text-xs text-quiet hover:text-muted dark:hover:text-[color:var(--text-inverse)]"
+                className="flex items-center gap-1 text-xs text-quiet hover:text-muted"
               >
                 <CheckCheck className="h-3.5 w-3.5" />
                 Mark all read
@@ -120,7 +120,7 @@ export function NotificationBell() {
                   onClick={() => handleNotifClick(n)}
                   className={cn(
                     "flex w-full items-start gap-3 border-b px-4 py-3 text-left transition last:border-b-0",
-                    "border-[color:var(--border)] hover:bg-[color:var(--surface-muted)] dark:hover:bg-[color:var(--text)]",
+                    "border-[color:var(--border)] hover:bg-[color:var(--surface-muted)]",
                     !n.read && "bg-[color:var(--info-soft)]/60",
                   )}
                 >

@@ -3222,7 +3222,7 @@ export default function BoardDetailPage() {
                   <button
                     type="button"
                     onClick={() => router.push("/agents/new")}
-                    className="rounded-md border border-[color:var(--border)] px-2.5 py-1 text-xs font-semibold text-muted transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-muted)] dark:hover:bg-[color:var(--text)]"
+                    className="rounded-md border border-[color:var(--border)] px-2.5 py-1 text-xs font-semibold text-muted transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-muted)]"
                   >
                     Add
                   </button>
@@ -3240,7 +3240,7 @@ export default function BoardDetailPage() {
                           key={agent.id}
                           type="button"
                           className={cn(
-                            "flex w-full items-center gap-3 rounded-lg border border-transparent px-2 py-2 text-left transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-muted)] dark:hover:bg-[color:var(--text)]",
+                            "flex w-full items-center gap-3 rounded-lg border border-transparent px-2 py-2 text-left transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-strong)]",
                           )}
                           onClick={() => router.push(`/agents/${agent.id}`)}
                         >
@@ -3710,7 +3710,7 @@ export default function BoardDetailPage() {
                 Description
               </p>
               {selectedTask?.description ? (
-                <div className="prose prose-sm max-w-none text-muted">
+                <div className="prose prose-sm max-w-none dark:prose-invert text-[color:var(--text)]">
                   <Markdown
                     content={selectedTask.description}
                     variant="description"

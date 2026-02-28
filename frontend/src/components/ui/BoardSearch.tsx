@@ -230,7 +230,7 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
                           onClick={() => handleTaskClick(t.id)}
                           className={cn(
                             "flex w-full items-center gap-3 border-b px-4 py-3 text-left transition last:border-b-0",
-                            "border-[color:var(--border)] hover:bg-[color:var(--surface-muted)] dark:hover:bg-[color:var(--text)]",
+                            "border-[color:var(--border)] hover:bg-[color:var(--surface-muted)]",
                           )}
                         >
                           <FileText className="h-4 w-4 flex-shrink-0 text-quiet" />
@@ -264,7 +264,7 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
                           onClick={() => handleTaskClick(c.task_id)}
                           className={cn(
                             "flex w-full items-start gap-3 border-b px-4 py-3 text-left transition last:border-b-0",
-                            "border-[color:var(--border)] hover:bg-[color:var(--surface-muted)] dark:hover:bg-[color:var(--text)]",
+                            "border-[color:var(--border)] hover:bg-[color:var(--surface-muted)]",
                           )}
                         >
                           <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0 text-quiet" />
