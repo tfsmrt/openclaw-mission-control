@@ -81,6 +81,7 @@ import {
 import {
   type getMyMembershipApiV1OrganizationsMeMemberGetResponse,
   useGetMyMembershipApiV1OrganizationsMeMemberGet,
+  useListOrgMembersApiV1OrganizationsMeMembersGet,
 } from "@/api/generated/organizations/organizations";
 import {
   createTaskApiV1BoardsBoardIdTasksPost,
@@ -761,6 +762,14 @@ export default function BoardDetailPage() {
       refetchOnMount: "always",
     },
   });
+  const membersQuery = useListOrgMembersApiV1OrganizationsMeMembersGet({
+    query: { enabled: Boolean(isSignedIn) },
+  });
+  const orgMembers = useMemo(
+    () => (membersQuery.data?.status === 200 ? (membersQuery.data.data.items ?? []) : []),
+    [membersQuery.data],
+  );
+
   const tagsQuery = useListTagsApiV1TagsGet<
     listTagsApiV1TagsGetResponse,
     ApiError
@@ -827,6 +836,7 @@ export default function BoardDetailPage() {
   const [hasLoadedBoardSnapshot, setHasLoadedBoardSnapshot] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<{ type: "agent" | "human"; id: string } | null>(null);
   const selectedTaskIdRef = useRef<string | null>(null);
   const openedTaskIdFromUrlRef = useRef<string | null>(null);
   const [comments, setComments] = useState<TaskComment[]>([]);
@@ -2330,6 +2340,13 @@ export default function BoardDetailPage() {
     });
   }, [agents, workingAgentIds]);
 
+  const filteredTasks = useMemo(() => {
+    if (!selectedFilter) return tasks;
+    if (selectedFilter.type === "agent")
+      return tasks.filter((t) => t.assigned_to_agent_id === selectedFilter.id);
+    return tasks.filter((t) => t.created_by_user_id === selectedFilter.id);
+  }, [tasks, selectedFilter]);
+
   const boardLead = useMemo(
     () => agents.find((agent) => agent.is_board_lead) ?? null,
     [agents],
@@ -3213,10 +3230,10 @@ export default function BoardDetailPage() {
                 <div className="flex items-center justify-between border-b border-[color:var(--border)] px-4 py-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-quiet">
-                      Agents
+                      Team
                     </p>
                     <p className="text-xs text-quiet">
-                      {sortedAgents.length} total
+                      {sortedAgents.length} agents · {orgMembers.length} humans
                     </p>
                   </div>
                   <button
@@ -3227,7 +3244,23 @@ export default function BoardDetailPage() {
                     Add
                   </button>
                 </div>
-                <div className="flex-1 space-y-2 overflow-y-auto p-3">
+                <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                  {/* Filter indicator */}
+                  {selectedFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFilter(null)}
+                      className="mb-2 flex w-full items-center justify-between rounded-lg bg-[color:var(--info-soft)] px-2 py-1.5 text-xs text-info"
+                    >
+                      <span>Filtering tasks</span>
+                      <span className="font-semibold">✕ Clear</span>
+                    </button>
+                  )}
+
+                  {/* Agents */}
+                  <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-quiet">
+                    Agents
+                  </p>
                   {sortedAgents.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-[color:var(--border)] p-3 text-xs text-quiet">
                       No agents assigned yet.
@@ -3235,16 +3268,22 @@ export default function BoardDetailPage() {
                   ) : (
                     sortedAgents.map((agent) => {
                       const isWorking = workingAgentIds.has(agent.id);
+                      const isSelected = selectedFilter?.type === "agent" && selectedFilter.id === agent.id;
                       return (
                         <button
                           key={agent.id}
                           type="button"
                           className={cn(
-                            "flex w-full items-center gap-3 rounded-lg border border-transparent px-2 py-2 text-left transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-strong)]",
+                            "flex w-full items-center gap-3 rounded-lg border px-2 py-2 text-left transition",
+                            isSelected
+                              ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)]"
+                              : "border-transparent hover:border-[color:var(--border)] hover:bg-[color:var(--surface-strong)]",
                           )}
-                          onClick={() => router.push(`/agents/${agent.id}`)}
+                          onClick={() =>
+                            setSelectedFilter(isSelected ? null : { type: "agent", id: agent.id })
+                          }
                         >
-                          <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--surface)] text-xs font-semibold text-strong border border-[color:var(--border-strong)]">
+                          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface)] text-xs font-semibold text-strong border border-[color:var(--border-strong)]">
                             {agentAvatarLabel(agent)}
                             <StatusDot
                               status={agent.status}
@@ -3266,6 +3305,46 @@ export default function BoardDetailPage() {
                         </button>
                       );
                     })
+                  )}
+
+                  {/* Humans divider */}
+                  {orgMembers.length > 0 && (
+                    <>
+                      <div className="my-3 border-t border-[color:var(--border)]" />
+                      <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-quiet">
+                        Humans
+                      </p>
+                      {orgMembers.map((member) => {
+                        const isSelected = selectedFilter?.type === "human" && selectedFilter.id === member.user_id;
+                        const name = member.user?.name ?? member.user?.email ?? "Unknown";
+                        const initials = name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
+                        return (
+                          <button
+                            key={member.user_id}
+                            type="button"
+                            className={cn(
+                              "flex w-full items-center gap-3 rounded-lg border px-2 py-2 text-left transition",
+                              isSelected
+                                ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)]"
+                                : "border-transparent hover:border-[color:var(--border)] hover:bg-[color:var(--surface-strong)]",
+                            )}
+                            onClick={() =>
+                              setSelectedFilter(isSelected ? null : { type: "human", id: member.user_id })
+                            }
+                          >
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[color:var(--accent)] to-[color:var(--accent-strong)] text-xs font-semibold text-white">
+                              {initials}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-strong">
+                                {name}
+                              </p>
+                              <p className="text-[11px] text-quiet capitalize">{member.role}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </>
                   )}
                 </div>
               </aside>
@@ -3516,7 +3595,7 @@ export default function BoardDetailPage() {
 
                   {viewMode === "board" ? (
                     <TaskBoard
-                      tasks={tasks}
+                      tasks={filteredTasks}
                       onTaskSelect={openComments}
                       onTaskMove={canWrite ? handleTaskMove : undefined}
                       readOnly={!canWrite}
@@ -3530,7 +3609,7 @@ export default function BoardDetailPage() {
                               All tasks
                             </p>
                             <p className="text-xs text-quiet">
-                              {tasks.length} tasks in this board
+                              {filteredTasks.length} tasks in this board
                             </p>
                           </div>
                           <Button
@@ -3550,7 +3629,7 @@ export default function BoardDetailPage() {
                             No tasks yet. Create your first task to get started.
                           </div>
                         ) : (
-                          tasks.map((task) => (
+                          filteredTasks.map((task) => (
                             <button
                               key={task.id}
                               type="button"
