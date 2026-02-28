@@ -3,25 +3,25 @@ import { cn } from "@/lib/utils";
 type StatusDotVariant = "agent" | "approval" | "task";
 
 const AGENT_STATUS_DOT_CLASS_BY_STATUS: Record<string, string> = {
-  online: "bg-emerald-500",
-  busy: "bg-amber-500",
-  provisioning: "bg-amber-500",
+  online: "bg-[color:var(--success)]",
+  busy: "bg-[color:var(--warning)]",
+  provisioning: "bg-[color:var(--warning)]",
   updating: "bg-sky-500",
-  deleting: "bg-rose-500",
-  offline: "bg-slate-400",
+  deleting: "bg-[color:var(--danger)]",
+  offline: "bg-[color:var(--surface-strong)]",
 };
 
 const APPROVAL_STATUS_DOT_CLASS_BY_STATUS: Record<string, string> = {
-  approved: "bg-emerald-500",
-  rejected: "bg-rose-500",
-  pending: "bg-amber-500",
+  approved: "bg-[color:var(--success)]",
+  rejected: "bg-[color:var(--danger)]",
+  pending: "bg-[color:var(--warning)]",
 };
 
 const TASK_STATUS_DOT_CLASS_BY_STATUS: Record<string, string> = {
-  inbox: "bg-slate-400",
-  in_progress: "bg-purple-500",
-  review: "bg-indigo-500",
-  done: "bg-emerald-500",
+  inbox: "bg-[color:var(--surface-strong)]",
+  in_progress: "bg-[color:var(--status-inprogress-bg)]",
+  review: "bg-[color:var(--info)]",
+  done: "bg-[color:var(--success)]",
 };
 
 const STATUS_DOT_CLASS_BY_VARIANT: Record<
@@ -34,9 +34,9 @@ const STATUS_DOT_CLASS_BY_VARIANT: Record<
 };
 
 const DEFAULT_STATUS_DOT_CLASS: Record<StatusDotVariant, string> = {
-  agent: "bg-slate-300",
-  approval: "bg-amber-500",
-  task: "bg-slate-300",
+  agent: "bg-[color:var(--surface-strong)]",
+  approval: "bg-[color:var(--warning)]",
+  task: "bg-[color:var(--surface-strong)]",
 };
 
 export const statusDotClass = (

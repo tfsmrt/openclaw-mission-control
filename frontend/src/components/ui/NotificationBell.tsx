@@ -11,10 +11,10 @@ import { useRouter } from "next/navigation";
 
 function NotifIcon({ type }: { type: AppNotification["type"] }) {
   if (type === "comment_added")
-    return <MessageSquare className="h-3.5 w-3.5 text-blue-500" />;
+    return <MessageSquare className="h-3.5 w-3.5 text-info" />;
   if (type === "mention")
-    return <AtSign className="h-3.5 w-3.5 text-purple-500" />;
-  return <GitPullRequestArrow className="h-3.5 w-3.5 text-emerald-500" />;
+    return <AtSign className="h-3.5 w-3.5 text-[color:var(--status-inprogress-text)]" />;
+  return <GitPullRequestArrow className="h-3.5 w-3.5 text-success" />;
 }
 
 function timeAgo(iso: string): string {
@@ -67,15 +67,15 @@ export function NotificationBell() {
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "relative flex h-9 w-9 items-center justify-center rounded-lg border transition",
-          "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700",
-          "dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200",
-          open && "border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-800",
+          "border-[color:var(--border)] text-quiet hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-muted)] hover:text-muted",
+          "dark:border-slate-700 dark:hover:bg-[color:var(--text)] dark:hover:text-[color:var(--text-inverse)]",
+          open && "border-[color:var(--border-strong)] bg-[color:var(--surface-muted)]",
         )}
         aria-label="Notifications"
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[color:var(--danger)] text-[10px] font-bold text-white">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -85,20 +85,20 @@ export function NotificationBell() {
         <div
           className={cn(
             "absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-xl border shadow-lg",
-            "border-slate-200 bg-white",
-            "dark:border-slate-700 dark:bg-slate-900",
+            "border-[color:var(--border)] bg-[color:var(--surface)]",
+            "dark:border-slate-700 dark:bg-[color:var(--text)]",
           )}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <div className="flex items-center justify-between border-b border-[color:var(--border)] px-4 py-3">
+            <span className="text-sm font-semibold text-strong">
               Notifications
             </span>
             {unreadCount > 0 && (
               <button
                 type="button"
                 onClick={markAllRead}
-                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                className="flex items-center gap-1 text-xs text-quiet hover:text-muted dark:hover:text-[color:var(--text-inverse)]"
               >
                 <CheckCheck className="h-3.5 w-3.5" />
                 Mark all read
@@ -109,7 +109,7 @@ export function NotificationBell() {
           {/* List */}
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+              <div className="py-8 text-center text-sm text-quiet">
                 No notifications yet
               </div>
             ) : (
@@ -120,11 +120,11 @@ export function NotificationBell() {
                   onClick={() => handleNotifClick(n)}
                   className={cn(
                     "flex w-full items-start gap-3 border-b px-4 py-3 text-left transition last:border-b-0",
-                    "border-slate-50 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800",
-                    !n.read && "bg-blue-50/60 dark:bg-blue-950/20",
+                    "border-[color:var(--border)] hover:bg-[color:var(--surface-muted)] dark:hover:bg-[color:var(--text)]",
+                    !n.read && "bg-[color:var(--info-soft)]/60",
                   )}
                 >
-                  <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                  <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-strong)]">
                     <NotifIcon type={n.type} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -132,21 +132,21 @@ export function NotificationBell() {
                       className={cn(
                         "truncate text-sm",
                         n.read
-                          ? "font-normal text-slate-600 dark:text-slate-400"
-                          : "font-medium text-slate-900 dark:text-slate-100",
+                          ? "font-normal text-muted"
+                          : "font-medium text-strong",
                       )}
                     >
                       {n.title}
                     </p>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-slate-400 dark:text-slate-500">
+                    <p className="mt-0.5 line-clamp-2 text-xs text-quiet">
                       {n.body}
                     </p>
-                    <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-600">
+                    <p className="mt-1 text-[10px] text-quiet">
                       {timeAgo(n.created_at)}
                     </p>
                   </div>
                   {!n.read && (
-                    <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
+                    <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-[color:var(--info)]" />
                   )}
                 </button>
               ))

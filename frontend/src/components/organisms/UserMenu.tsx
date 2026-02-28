@@ -48,8 +48,8 @@ function ThemeRow() {
   return (
     <div className="flex items-center justify-between px-3 py-1.5">
       <div className="flex items-center gap-2">
-        <Palette className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <Palette className="h-4 w-4 text-quiet" />
+        <span className="text-sm font-semibold text-muted">
           Theme
         </span>
       </div>
@@ -106,9 +106,9 @@ export function UserMenu({
           type="button"
           className={cn(
             "group inline-flex h-9 items-center gap-2 rounded-[10px] bg-transparent px-1 py-1 transition",
-            "hover:bg-white/70 dark:hover:bg-slate-700/70",
-            "focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--neutral-300,var(--border-strong))] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900",
-            "data-[state=open]:bg-white dark:data-[state=open]:bg-slate-700",
+            "hover:bg-[color:var(--surface)]/70",
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--neutral-300,var(--border-strong))] focus-visible:ring-offset-2 focus-visible:ring-offset-white",
+            "data-[state=open]:bg-[color:var(--surface)]",
             className,
           )}
           aria-label="Open user menu"
@@ -133,21 +133,21 @@ export function UserMenu({
               avatarLabel
             )}
           </span>
-          <ChevronDown className="h-4 w-4 text-[color:var(--neutral-700,var(--text-quiet))] dark:text-slate-400 transition group-data-[state=open]:rotate-180" />
+          <ChevronDown className="h-4 w-4 text-[color:var(--neutral-700,var(--text-quiet))] transition group-data-[state=open]:rotate-180" />
         </button>
       </PopoverTrigger>
       <PopoverContent
         align="end"
         sideOffset={12}
-        className="w-80 overflow-hidden rounded-2xl border border-[color:var(--neutral-200,var(--border))] bg-white/95 p-0 shadow-[0_8px_32px_rgba(10,22,40,0.08)] backdrop-blur dark:bg-slate-800/95 dark:border-slate-700 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+        className="w-80 overflow-hidden rounded-2xl border border-[color:var(--neutral-200,var(--border))] bg-[color:var(--surface)]/95 p-0 shadow-[0_8px_32px_rgba(10,22,40,0.08)] backdrop-blur/95 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
       >
-        <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+        <div className="border-b border-[color:var(--border)] px-4 py-3">
           <div className="flex items-center gap-3">
             <span
               className={cn(
                 "flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl text-sm font-semibold text-white",
                 avatarUrl
-                  ? "bg-slate-200 dark:bg-slate-700"
+                  ? "bg-[color:var(--surface-strong)]"
                   : "bg-gradient-to-br from-[color:var(--primary-navy,var(--accent))] to-[color:var(--secondary-navy,var(--accent-strong))]",
               )}
             >
@@ -164,11 +164,11 @@ export function UserMenu({
               )}
             </span>
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <div className="truncate text-sm font-semibold text-strong">
                 {displayName}
               </div>
               {displayEmail ? (
-                <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                <div className="truncate text-xs text-quiet">
                   {displayEmail}
                 </div>
               ) : null}
@@ -179,10 +179,10 @@ export function UserMenu({
           <div className="grid grid-cols-2 gap-2">
             <Link
               href="/boards"
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm font-semibold text-strong transition hover:bg-[color:var(--surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               onClick={() => setOpen(false)}
             >
-              <Trello className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <Trello className="h-4 w-4 text-quiet" />
               Open boards
             </Link>
             <Link
@@ -195,7 +195,7 @@ export function UserMenu({
             </Link>
           </div>
 
-          <div className="my-2 h-px bg-slate-100 dark:bg-slate-700" />
+          <div className="my-2 h-px bg-[color:var(--surface-strong)]" />
 
           {(
             [
@@ -211,42 +211,42 @@ export function UserMenu({
             <Link
               key={item.href}
               href={item.href}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-slate-200 dark:hover:bg-slate-700"
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-muted transition hover:bg-[color:var(--surface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               onClick={() => setOpen(false)}
             >
-              <item.icon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <item.icon className="h-4 w-4 text-quiet" />
               {item.label}
             </Link>
           ))}
 
-          <div className="my-2 h-px bg-slate-100 dark:bg-slate-700" />
+          <div className="my-2 h-px bg-[color:var(--surface-strong)]" />
 
           {/* Theme switcher */}
           <ThemeRow />
 
-          <div className="my-2 h-px bg-slate-100 dark:bg-slate-700" />
+          <div className="my-2 h-px bg-[color:var(--surface-strong)]" />
 
           {localMode ? (
             <button
               type="button"
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-slate-200 dark:hover:bg-slate-700"
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-muted transition hover:bg-[color:var(--surface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               onClick={() => {
                 clearLocalAuthToken();
                 setOpen(false);
                 window.location.reload();
               }}
             >
-              <LogOut className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <LogOut className="h-4 w-4 text-quiet" />
               Sign out
             </button>
           ) : (
             <SignOutButton>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-muted transition hover:bg-[color:var(--surface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 onClick={() => setOpen(false)}
               >
-                <LogOut className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                <LogOut className="h-4 w-4 text-quiet" />
                 Sign out
               </button>
             </SignOutButton>

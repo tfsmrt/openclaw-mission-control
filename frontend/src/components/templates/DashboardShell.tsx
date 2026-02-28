@@ -71,7 +71,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="h-screen overflow-hidden flex flex-col bg-app text-strong">
-      <header className="shrink-0 z-40 border-b border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/50">
+      <header className="shrink-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm dark:bg-[color:var(--text)] dark:shadow-slate-900/50">
         <div className="grid grid-cols-[260px_1fr_auto] items-center gap-0 py-3">
           <div className="flex items-center px-6">
             <BrandMark />
@@ -87,17 +87,17 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-3 px-6">
               <NotificationBell />
               <div className="hidden text-right lg:block">
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <p className="text-sm font-semibold text-strong">
                   {displayName}
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Operator</p>
+                <p className="text-xs text-quiet">Operator</p>
               </div>
               <UserMenu displayName={displayName} displayEmail={displayEmail} />
             </div>
           </SignedIn>
         </div>
       </header>
-      <div className="grid flex-1 min-h-0 grid-cols-[260px_1fr] grid-rows-[1fr] bg-slate-50 dark:bg-slate-900">
+      <div className="grid flex-1 min-h-0 grid-cols-[260px_1fr] grid-rows-[1fr] bg-[color:var(--surface-muted)] dark:bg-[color:var(--text)]">
         {children}
       </div>
     </div>

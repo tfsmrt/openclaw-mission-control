@@ -67,24 +67,24 @@ const statusLabel = (value?: string | null) => {
 const statusTone = (value?: string | null) => {
   switch (value) {
     case "in_progress":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      return "bg-[color:var(--success-soft)] text-success border-emerald-200";
     case "review":
-      return "bg-amber-50 text-amber-800 border-amber-200";
+      return "bg-[color:var(--warning-soft)] text-warning border-[color:var(--warning-border)]";
     case "done":
-      return "bg-slate-50 text-slate-600 border-slate-200";
+      return "bg-[color:var(--surface-muted)] text-muted border-[color:var(--border)]";
     default:
-      return "bg-blue-50 text-blue-700 border-blue-200";
+      return "bg-[color:var(--info-soft)] text-info border-[color:var(--info-border)]";
   }
 };
 
 const priorityTone = (value?: string | null) => {
   switch (value) {
     case "high":
-      return "bg-rose-50 text-rose-700 border-rose-200";
+      return "bg-[color:var(--danger-soft)] text-danger border-[color:var(--danger-border)]";
     case "low":
-      return "bg-slate-50 text-slate-600 border-slate-200";
+      return "bg-[color:var(--surface-muted)] text-muted border-[color:var(--border)]";
     default:
-      return "bg-indigo-50 text-indigo-700 border-indigo-200";
+      return "bg-[color:var(--info-soft)] text-info border-[color:var(--info-border)]";
   }
 };
 
@@ -105,24 +105,24 @@ const canWriteGroupBoards = (
 
 function GroupChatMessageCard({ message }: { message: BoardGroupMemoryRead }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-900">
+        <p className="text-sm font-semibold text-strong">
           {message.source ?? "User"}
         </p>
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-quiet">
           {formatTimestamp(message.created_at)}
         </span>
       </div>
-      <div className="mt-2 select-text cursor-text text-sm leading-relaxed text-slate-900 break-words">
+      <div className="mt-2 select-text cursor-text text-sm leading-relaxed text-strong break-words">
         <Markdown content={message.content} variant="basic" />
       </div>
       {message.tags?.length ? (
-        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-600">
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted">
           {message.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full border border-slate-200 bg-white px-2 py-0.5"
+              className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-0.5"
             >
               {tag}
             </span>
@@ -742,23 +742,23 @@ export default function BoardGroupDetailPage() {
       </SignedOut>
       <SignedIn>
         <DashboardSidebar />
-        <main className="flex-1 overflow-y-auto bg-slate-50">
-          <div className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
+        <main className="flex-1 overflow-y-auto bg-[color:var(--surface-muted)]">
+          <div className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
             <div className="px-8 py-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-quiet">
                     Board group
                   </p>
-                  <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                  <h1 className="mt-2 text-2xl font-semibold tracking-tight text-strong">
                     {group?.name ?? "Group"}
                   </h1>
                   {group?.description ? (
-                    <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                    <p className="mt-2 max-w-2xl text-sm text-muted">
                       {group.description}
                     </p>
                   ) : (
-                    <p className="mt-2 text-sm text-slate-400">
+                    <p className="mt-2 text-sm text-quiet">
                       No description
                     </p>
                   )}
@@ -817,18 +817,18 @@ export default function BoardGroupDetailPage() {
               </div>
 
               <div className="mt-5 flex flex-wrap items-center gap-3">
-                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                <label className="inline-flex items-center gap-2 text-sm text-muted">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                    className="h-4 w-4 rounded border-[color:var(--border-strong)] text-info"
                     checked={includeDone}
                     onChange={(event) => setIncludeDone(event.target.checked)}
                   />
                   Include done
                 </label>
-                <div className="flex items-center gap-2 text-sm text-slate-700">
-                  <span className="text-slate-500">Top tasks per board</span>
-                  <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+                <div className="flex items-center gap-2 text-sm text-muted">
+                  <span className="text-quiet">Top tasks per board</span>
+                  <div className="flex items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1">
                     {[0, 3, 5, 10].map((value) => (
                       <button
                         key={value}
@@ -836,8 +836,8 @@ export default function BoardGroupDetailPage() {
                         className={cn(
                           "rounded-md px-2.5 py-1 text-xs font-semibold transition-colors",
                           perBoardLimit === value
-                            ? "bg-slate-900 text-white"
-                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                            ? "bg-[color:var(--text)] text-white"
+                            : "text-muted hover:bg-[color:var(--surface-strong)] hover:text-strong",
                         )}
                         onClick={() => setPerBoardLimit(value)}
                       >
@@ -847,9 +847,9 @@ export default function BoardGroupDetailPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
-                  <span className="text-slate-500">Agent pace</span>
-                  <div className="flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                  <span className="text-quiet">Agent pace</span>
+                  <div className="flex flex-wrap items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1">
                     {HEARTBEAT_PRESETS.map((preset) => {
                       const value = `${preset.amount}${preset.unit}`;
                       return (
@@ -859,8 +859,8 @@ export default function BoardGroupDetailPage() {
                           className={cn(
                             "rounded-md px-2.5 py-1 text-xs font-semibold transition-colors",
                             heartbeatEvery === value
-                              ? "bg-slate-900 text-white"
-                              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                              ? "bg-[color:var(--text)] text-white"
+                              : "text-muted hover:bg-[color:var(--surface-strong)] hover:text-strong",
                             !canManageHeartbeat &&
                               "opacity-50 cursor-not-allowed",
                           )}
@@ -879,10 +879,10 @@ export default function BoardGroupDetailPage() {
                     value={heartbeatAmount}
                     onChange={(event) => setHeartbeatAmount(event.target.value)}
                     className={cn(
-                      "h-8 w-20 rounded-md border bg-white px-2 text-xs text-slate-900 shadow-sm",
+                      "h-8 w-20 rounded-md border bg-[color:var(--surface)] px-2 text-xs text-strong shadow-sm",
                       heartbeatEvery
-                        ? "border-slate-200"
-                        : "border-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-100",
+                        ? "border-[color:var(--border)]"
+                        : "border-[color:var(--danger-border)] focus:border-[color:var(--danger-border)] focus:ring-2 focus:ring-rose-100",
                       !canManageHeartbeat && "opacity-60 cursor-not-allowed",
                     )}
                     placeholder="10"
@@ -898,7 +898,7 @@ export default function BoardGroupDetailPage() {
                       setHeartbeatUnit(event.target.value as HeartbeatUnit)
                     }
                     className={cn(
-                      "h-8 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-900 shadow-sm",
+                      "h-8 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs text-strong shadow-sm",
                       !canManageHeartbeat && "opacity-60 cursor-not-allowed",
                     )}
                     disabled={!canManageHeartbeat}
@@ -908,10 +908,10 @@ export default function BoardGroupDetailPage() {
                     <option value="h">hr</option>
                     <option value="d">day</option>
                   </select>
-                  <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+                  <label className="inline-flex items-center gap-2 text-xs text-muted">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                      className="h-4 w-4 rounded border-[color:var(--border-strong)] text-info"
                       checked={includeBoardLeads}
                       onChange={(event) =>
                         setIncludeBoardLeads(event.target.checked)
@@ -939,7 +939,7 @@ export default function BoardGroupDetailPage() {
                   </Button>
                 </div>
                 {!canManageHeartbeat ? (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-quiet">
                     Read-only access. You cannot change agent pace for this
                     group.
                   </p>
@@ -951,16 +951,16 @@ export default function BoardGroupDetailPage() {
           <div className="p-8">
             <div className="space-y-6">
               {heartbeatApplyError ? (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm">
+                <div className="rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-4 text-sm text-danger shadow-sm">
                   {heartbeatApplyError}
                 </div>
               ) : null}
               {heartbeatApplyResult ? (
-                <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
-                  <p className="font-semibold text-slate-900">
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-sm text-muted shadow-sm">
+                  <p className="font-semibold text-strong">
                     Heartbeat applied
                   </p>
-                  <p className="mt-1 text-slate-600">
+                  <p className="mt-1 text-muted">
                     Updated {heartbeatApplyResult.updated_agent_ids.length}{" "}
                     agents, failed{" "}
                     {heartbeatApplyResult.failed_agent_ids.length}.
@@ -969,15 +969,15 @@ export default function BoardGroupDetailPage() {
               ) : null}
 
               {snapshotQuery.isLoading ? (
-                <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 text-sm text-muted shadow-sm">
                   Loading group snapshot…
                 </div>
               ) : snapshotQuery.error ? (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700 shadow-sm">
+                <div className="rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-6 text-sm text-danger shadow-sm">
                   {snapshotQuery.error.message}
                 </div>
               ) : boards.length === 0 ? (
-                <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 text-sm text-muted shadow-sm">
                   No boards in this group yet. Assign boards from the board
                   settings page.
                 </div>
@@ -986,9 +986,9 @@ export default function BoardGroupDetailPage() {
                   {boards.map((item) => (
                     <div
                       key={item.board.id}
-                      className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                      className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm"
                     >
-                      <div className="border-b border-slate-200 px-6 py-4">
+                      <div className="border-b border-[color:var(--border)] px-6 py-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0">
                             <Link
@@ -996,23 +996,23 @@ export default function BoardGroupDetailPage() {
                               className="group inline-flex items-center gap-2"
                               title="Open board"
                             >
-                              <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-blue-600">
+                              <p className="truncate text-sm font-semibold text-strong group-hover:text-info">
                                 {item.board.name}
                               </p>
-                              <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:text-blue-600" />
+                              <ArrowUpRight className="h-4 w-4 text-quiet group-hover:text-info" />
                             </Link>
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-xs text-quiet">
                               Updated {formatTimestamp(item.board.updated_at)}
                             </p>
                           </div>
                           <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
-                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-700">
+                            <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-2 py-0.5 text-muted">
                               Inbox {safeCount(item, "inbox")}
                             </span>
-                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800">
+                            <span className="rounded-full border border-emerald-200 bg-[color:var(--success-soft)] px-2 py-0.5 text-success">
                               In progress {safeCount(item, "in_progress")}
                             </span>
-                            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-900">
+                            <span className="rounded-full border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-2 py-0.5 text-warning">
                               Review {safeCount(item, "review")}
                             </span>
                           </div>
@@ -1029,7 +1029,7 @@ export default function BoardGroupDetailPage() {
                                     pathname: `/boards/${item.board.id}`,
                                     query: { taskId: task.id },
                                   }}
-                                  className="block rounded-lg border border-slate-200 bg-slate-50/40 p-3 transition hover:border-blue-200 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                  className="block rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)]/40 p-3 transition hover:border-[color:var(--info-border)] hover:bg-[color:var(--info-soft)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                                   title="Open task on board"
                                 >
                                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1050,22 +1050,22 @@ export default function BoardGroupDetailPage() {
                                       >
                                         {task.priority}
                                       </span>
-                                      <p className="truncate text-sm font-medium text-slate-900">
+                                      <p className="truncate text-sm font-medium text-strong">
                                         {task.title}
                                       </p>
                                     </div>
-                                    <p className="text-xs text-slate-500">
+                                    <p className="text-xs text-quiet">
                                       {formatTimestamp(task.updated_at)}
                                     </p>
                                   </div>
-                                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+                                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
                                     <p className="truncate">
                                       Assignee:{" "}
-                                      <span className="font-medium text-slate-900">
+                                      <span className="font-medium text-strong">
                                         {task.assignee ?? "Unassigned"}
                                       </span>
                                     </p>
-                                    <p className="font-mono text-[11px] text-slate-400">
+                                    <p className="font-mono text-[11px] text-quiet">
                                       {task.id}
                                     </p>
                                   </div>
@@ -1074,7 +1074,7 @@ export default function BoardGroupDetailPage() {
                             ))}
                           </ul>
                         ) : (
-                          <p className="text-sm text-slate-500">
+                          <p className="text-sm text-quiet">
                             No tasks in this snapshot.
                           </p>
                         )}
@@ -1089,7 +1089,7 @@ export default function BoardGroupDetailPage() {
       </SignedIn>
       {isChatOpen || isNotesOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/20"
+          className="fixed inset-0 z-40 bg-[color:var(--text)]/20"
           onClick={() => {
             setIsChatOpen(false);
             setChatError(null);
@@ -1100,17 +1100,17 @@ export default function BoardGroupDetailPage() {
       ) : null}
       <aside
         className={cn(
-          "fixed right-0 top-0 z-50 h-full w-[560px] max-w-[96vw] transform border-l border-slate-200 bg-white shadow-2xl transition-transform",
+          "fixed right-0 top-0 z-50 h-full w-[560px] max-w-[96vw] transform border-l border-[color:var(--border)] bg-[color:var(--surface)] shadow-2xl transition-transform",
           isChatOpen ? "transform-none" : "translate-x-full",
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div className="flex items-center justify-between border-b border-[color:var(--border)] px-6 py-4">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <p className="text-xs font-semibold uppercase tracking-wider text-quiet">
                 Group chat
               </p>
-              <p className="mt-1 truncate text-sm font-medium text-slate-900">
+              <p className="mt-1 truncate text-sm font-medium text-strong">
                 Shared across linked boards. Tag @lead, @name, or @all.
               </p>
             </div>
@@ -1120,7 +1120,7 @@ export default function BoardGroupDetailPage() {
                 setIsChatOpen(false);
                 setChatError(null);
               }}
-              className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"
+              className="rounded-lg border border-[color:var(--border)] p-2 text-quiet transition hover:bg-[color:var(--surface-muted)]"
               aria-label="Close group chat"
             >
               <X className="h-4 w-4" />
@@ -1128,38 +1128,38 @@ export default function BoardGroupDetailPage() {
           </div>
           <div className="flex flex-1 flex-col overflow-hidden px-6 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <label className="inline-flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                  className="h-4 w-4 rounded border-[color:var(--border-strong)] text-info"
                   checked={chatBroadcast}
                   onChange={(event) => setChatBroadcast(event.target.checked)}
                   disabled={!canWriteGroup}
                 />
                 Broadcast
               </label>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-quiet">
                 {chatBroadcast
                   ? "Notifies every agent in the group."
                   : "Notifies leads + mentions."}
               </p>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
               {chatHistoryQuery.error ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-danger">
                   {chatHistoryQuery.error.message}
                 </div>
               ) : null}
               {chatError ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-danger">
                   {chatError}
                 </div>
               ) : null}
               {chatHistoryQuery.isLoading && chatMessages.length === 0 ? (
-                <p className="text-sm text-slate-500">Loading…</p>
+                <p className="text-sm text-quiet">Loading…</p>
               ) : chatMessages.length === 0 ? (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-quiet">
                   No messages yet. Start the conversation with a broadcast or a
                   mention.
                 </p>
@@ -1187,17 +1187,17 @@ export default function BoardGroupDetailPage() {
       </aside>
       <aside
         className={cn(
-          "fixed right-0 top-0 z-50 h-full w-[560px] max-w-[96vw] transform border-l border-slate-200 bg-white shadow-2xl transition-transform",
+          "fixed right-0 top-0 z-50 h-full w-[560px] max-w-[96vw] transform border-l border-[color:var(--border)] bg-[color:var(--surface)] shadow-2xl transition-transform",
           isNotesOpen ? "transform-none" : "translate-x-full",
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div className="flex items-center justify-between border-b border-[color:var(--border)] px-6 py-4">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <p className="text-xs font-semibold uppercase tracking-wider text-quiet">
                 Group notes
               </p>
-              <p className="mt-1 truncate text-sm font-medium text-slate-900">
+              <p className="mt-1 truncate text-sm font-medium text-strong">
                 Shared across linked boards. Tag @lead, @name, or @all.
               </p>
             </div>
@@ -1207,7 +1207,7 @@ export default function BoardGroupDetailPage() {
                 setIsNotesOpen(false);
                 setNoteSendError(null);
               }}
-              className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"
+              className="rounded-lg border border-[color:var(--border)] p-2 text-quiet transition hover:bg-[color:var(--surface-muted)]"
               aria-label="Close group notes"
             >
               <X className="h-4 w-4" />
@@ -1215,38 +1215,38 @@ export default function BoardGroupDetailPage() {
           </div>
           <div className="flex flex-1 flex-col overflow-hidden px-6 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <label className="inline-flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                  className="h-4 w-4 rounded border-[color:var(--border-strong)] text-info"
                   checked={notesBroadcast}
                   onChange={(event) => setNotesBroadcast(event.target.checked)}
                   disabled={!canWriteGroup}
                 />
                 Broadcast
               </label>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-quiet">
                 {notesBroadcast
                   ? "Notifies every agent in the group."
                   : "Notifies leads + mentions."}
               </p>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
               {notesHistoryQuery.error ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-danger">
                   {notesHistoryQuery.error.message}
                 </div>
               ) : null}
               {noteSendError ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-danger">
                   {noteSendError}
                 </div>
               ) : null}
               {notesHistoryQuery.isLoading && notesMessages.length === 0 ? (
-                <p className="text-sm text-slate-500">Loading…</p>
+                <p className="text-sm text-quiet">Loading…</p>
               ) : notesMessages.length === 0 ? (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-quiet">
                   No notes yet. Post a note or a broadcast to share context
                   across boards.
                 </p>

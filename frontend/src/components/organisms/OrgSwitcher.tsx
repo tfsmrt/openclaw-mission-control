@@ -144,14 +144,14 @@ export function OrgSwitcher() {
   return (
     <div className="relative">
       <Select value={orgValue} onValueChange={handleOrgChange}>
-        <SelectTrigger className="h-9 w-[220px] rounded-md border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-none focus:ring-2 focus:ring-blue-500/30 focus:ring-offset-0 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+        <SelectTrigger className="h-9 w-[220px] rounded-md border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-medium text-strong shadow-none focus:ring-2 focus:ring-blue-500/30 focus:ring-offset-0">
           <span className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-slate-400" />
+            <Building2 className="h-4 w-4 text-quiet" />
             <SelectValue placeholder="Select organization" />
           </span>
         </SelectTrigger>
-        <SelectContent className="min-w-[220px] rounded-md border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-          <div className="px-3 pb-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        <SelectContent className="min-w-[220px] rounded-md border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-xl dark:bg-[color:var(--text)]">
+          <div className="px-3 pb-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-quiet">
             Org switcher
           </div>
           {orgs.length ? (
@@ -159,7 +159,7 @@ export function OrgSwitcher() {
               <SelectItem
                 key={org.id}
                 value={org.id}
-                className="rounded-md py-2 pl-7 pr-3 text-sm text-slate-700 data-[state=checked]:bg-slate-50 data-[state=checked]:text-slate-900 focus:bg-slate-100 dark:text-slate-200 dark:data-[state=checked]:bg-slate-800 dark:data-[state=checked]:text-slate-100 dark:focus:bg-slate-800"
+                className="rounded-md py-2 pl-7 pr-3 text-sm text-muted data-[state=checked]:bg-[color:var(--surface-muted)] data-[state=checked]:text-strong focus:bg-[color:var(--surface-strong)] dark:data-[state=checked]:bg-[color:var(--text)] dark:data-[state=checked]:text-[color:var(--text-inverse)] dark:focus:bg-[color:var(--text)]"
               >
                 {org.name}
               </SelectItem>
@@ -167,25 +167,25 @@ export function OrgSwitcher() {
           ) : (
             <SelectItem
               value={orgValue}
-              className="rounded-md py-2 pl-7 pr-3 text-sm text-slate-700 dark:text-slate-200"
+              className="rounded-md py-2 pl-7 pr-3 text-sm text-muted"
             >
               Organization
             </SelectItem>
           )}
-          <SelectSeparator className="my-2 dark:bg-slate-700" />
+          <SelectSeparator className="my-2" />
           <SelectItem
             value="__create__"
-            className="rounded-md py-2 pl-3 pr-3 text-sm font-medium text-slate-600 hover:text-slate-900 focus:bg-slate-100 dark:text-slate-300 dark:hover:text-slate-100 dark:focus:bg-slate-800 [&>span:first-child]:hidden"
+            className="rounded-md py-2 pl-3 pr-3 text-sm font-medium text-muted hover:text-strong focus:bg-[color:var(--surface-strong)] dark:hover:text-[color:var(--text-inverse)] dark:focus:bg-[color:var(--text)] [&>span:first-child]:hidden"
           >
             <span className="flex items-center gap-2">
-              <Plus className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <Plus className="h-4 w-4 text-quiet" />
               Create new org
             </span>
           </SelectItem>
         </SelectContent>
       </Select>
       {orgError && !createOpen ? (
-        <p className="absolute left-0 top-full mt-1 text-xs text-rose-500">
+        <p className="absolute left-0 top-full mt-1 text-xs text-danger">
           {orgError}
         </p>
       ) : null}
@@ -213,7 +213,7 @@ export function OrgSwitcher() {
               onChange={(event) => setOrgName(event.target.value)}
             />
             {orgError ? (
-              <p className="text-sm text-rose-500">{orgError}</p>
+              <p className="text-sm text-danger">{orgError}</p>
             ) : null}
           </div>
           <DialogFooter className="mt-6">

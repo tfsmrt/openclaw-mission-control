@@ -47,10 +47,10 @@ interface SearchResults {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  inbox: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-  in_progress: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  review: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  done: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+  inbox: "bg-[color:var(--surface-strong)] text-muted",
+  in_progress: "bg-[color:var(--info-soft)] text-info",
+  review: "bg-[color:var(--warning-soft)] text-warning",
+  done: "bg-[color:var(--success-soft)] text-success",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -147,13 +147,13 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
         onClick={() => setOpen(true)}
         className={cn(
           "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition",
-          "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700",
-          "dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-200",
+          "border-[color:var(--border)] bg-[color:var(--surface)] text-quiet hover:border-[color:var(--border-strong)] hover:text-muted",
+          "dark:border-slate-700 dark:hover:text-[color:var(--text-inverse)]",
         )}
       >
         <Search className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Search</span>
-        <kbd className="hidden rounded border border-slate-200 bg-slate-50 px-1 py-0.5 text-[10px] text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500 sm:inline">
+        <kbd className="hidden rounded border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-1 py-0.5 text-[10px] text-quiet dark:bg-[color:var(--text)] sm:inline">
           ⌘K
         </kbd>
       </button>
@@ -171,13 +171,13 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
           <div
             className={cn(
               "relative z-10 w-full max-w-lg overflow-hidden rounded-xl border shadow-2xl",
-              "border-slate-200 bg-white",
-              "dark:border-slate-700 dark:bg-slate-800",
+              "border-[color:var(--border)] bg-[color:var(--surface)]",
+              "dark:border-slate-700",
             )}
           >
             {/* Input row */}
-            <div className="flex items-center gap-3 border-b border-slate-100 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
-              <Search className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+            <div className="flex items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
+              <Search className="h-4 w-4 flex-shrink-0 text-quiet" />
               <input
                 ref={inputRef}
                 value={query}
@@ -185,17 +185,17 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
                 placeholder="Search tasks and comments…"
                 className={cn(
                   "flex-1 bg-transparent text-sm outline-none",
-                  "text-slate-900 placeholder:text-slate-400",
-                  "dark:text-slate-100 dark:placeholder:text-slate-500",
+                  "text-strong placeholder:text-quiet",
+                  "dark:text-[color:var(--text-inverse)] dark:placeholder:text-quiet",
                 )}
               />
               {loading && (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[color:var(--border-strong)] border-t-slate-600" />
               )}
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                className="text-quiet hover:text-muted"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -204,12 +204,12 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
             {/* Results */}
             <div className="max-h-96 overflow-y-auto">
               {!query && (
-                <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+                <p className="py-8 text-center text-sm text-quiet">
                   Type to search within this board
                 </p>
               )}
               {noResults && (
-                <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+                <p className="py-8 text-center text-sm text-quiet">
                   No results for &ldquo;{query}&rdquo;
                 </p>
               )}
@@ -218,8 +218,8 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
                 <>
                   {results.tasks.length > 0 && (
                     <div>
-                      <div className="border-b border-slate-100 px-4 py-2 dark:border-slate-700">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                      <div className="border-b border-[color:var(--border)] px-4 py-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-quiet">
                           Tasks ({results.tasks.length})
                         </span>
                       </div>
@@ -230,16 +230,16 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
                           onClick={() => handleTaskClick(t.id)}
                           className={cn(
                             "flex w-full items-center gap-3 border-b px-4 py-3 text-left transition last:border-b-0",
-                            "border-slate-50 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800",
+                            "border-[color:var(--border)] hover:bg-[color:var(--surface-muted)] dark:hover:bg-[color:var(--text)]",
                           )}
                         >
-                          <FileText className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+                          <FileText className="h-4 w-4 flex-shrink-0 text-quiet" />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                            <p className="truncate text-sm font-medium text-strong">
                               {t.title}
                             </p>
                             {t.description && (
-                              <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
+                              <p className="mt-0.5 truncate text-xs text-quiet">
                                 {t.description}
                               </p>
                             )}
@@ -252,8 +252,8 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
 
                   {results.comments.length > 0 && (
                     <div>
-                      <div className="border-b border-slate-100 px-4 py-2 dark:border-slate-700">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                      <div className="border-b border-[color:var(--border)] px-4 py-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-quiet">
                           Comments ({results.comments.length})
                         </span>
                       </div>
@@ -264,20 +264,20 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
                           onClick={() => handleTaskClick(c.task_id)}
                           className={cn(
                             "flex w-full items-start gap-3 border-b px-4 py-3 text-left transition last:border-b-0",
-                            "border-slate-50 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800",
+                            "border-[color:var(--border)] hover:bg-[color:var(--surface-muted)] dark:hover:bg-[color:var(--text)]",
                           )}
                         >
-                          <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+                          <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0 text-quiet" />
                           <div className="min-w-0 flex-1">
-                            <p className="mb-0.5 text-xs text-slate-500 dark:text-slate-400">
-                              <span className="font-medium text-slate-700 dark:text-slate-300">
+                            <p className="mb-0.5 text-xs text-quiet">
+                              <span className="font-medium text-muted">
                                 {c.task_title}
                               </span>
                               {c.author_name && (
                                 <span> · {c.author_name}</span>
                               )}
                             </p>
-                            <p className="line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
+                            <p className="line-clamp-2 text-sm text-muted">
                               {c.message}
                             </p>
                           </div>

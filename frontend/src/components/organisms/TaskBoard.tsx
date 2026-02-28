@@ -453,11 +453,11 @@ export const TaskBoard = memo(function TaskBoard({
             onDragOver={readOnly ? undefined : handleDragOver(column.status)}
             onDragLeave={readOnly ? undefined : handleDragLeave(column.status)}
           >
-            <div className="column-header shrink-0 z-10 rounded-t-xl border border-b-0 border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800/90">
+            <div className="column-header shrink-0 z-10 rounded-t-xl border border-b-0 border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3/90">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className={cn("h-2 w-2 rounded-full", column.dot)} />
-                  <h3 className="text-sm font-semibold text-slate-900">
+                  <h3 className="text-sm font-semibold text-strong">
                     {column.title}
                   </h3>
                 </div>
@@ -471,7 +471,7 @@ export const TaskBoard = memo(function TaskBoard({
                 </span>
               </div>
               {column.status === "review" && reviewCounts ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-quiet">
                   {(
                     [
                       { key: "all", label: "All", count: reviewCounts.all },
@@ -499,8 +499,8 @@ export const TaskBoard = memo(function TaskBoard({
                       className={cn(
                         "rounded-full border px-2.5 py-1 transition",
                         reviewBucket === option.key
-                          ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:bg-slate-700",
+                          ? "border-[color:var(--border-strong)] bg-[color:var(--text)] text-white dark:border-[color:var(--border)] dark:bg-[color:var(--surface-strong)]"
+                          : "border-[color:var(--border)] bg-[color:var(--surface)] text-muted hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-muted)] dark:hover:bg-[color:var(--surface-strong)]",
                       )}
                       aria-pressed={reviewBucket === option.key}
                     >
@@ -510,7 +510,7 @@ export const TaskBoard = memo(function TaskBoard({
                 </div>
               ) : null}
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-none [overflow-anchor:none] rounded-b-xl border border-t-0 border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-none [overflow-anchor:none] rounded-b-xl border border-t-0 border-[color:var(--border)] bg-[color:var(--surface)] p-3">
               <div className="space-y-3">
                 {filteredTasks.map((task) => {
                   const dueState = resolveDueState(task);

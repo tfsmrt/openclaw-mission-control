@@ -129,12 +129,12 @@ export default function EditCustomFieldPage() {
       stickyHeader
     >
       {customFieldsQuery.isLoading ? (
-        <div className="max-w-3xl rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+        <div className="max-w-3xl rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 text-sm text-quiet shadow-sm">
           Loading custom field…
         </div>
       ) : null}
       {!customFieldsQuery.isLoading && loadError ? (
-        <div className="max-w-3xl rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700 shadow-sm">
+        <div className="max-w-3xl rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-6 text-sm text-danger shadow-sm">
           {loadError}
         </div>
       ) : null}
