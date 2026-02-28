@@ -60,7 +60,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, customFetch } from "@/api/mutator";
-import { Download } from "lucide-react";
+import { Check, Copy, Download } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { streamAgentsApiV1AgentsStreamGet } from "@/api/generated/agents/agents";
 import {
   streamApprovalsApiV1BoardsBoardIdApprovalsStreamGet,
@@ -848,6 +851,8 @@ export default function BoardDetailPage() {
   const [workspaceFileContent, setWorkspaceFileContent] = useState<string | null>(null);
   const [workspaceFileViewPath, setWorkspaceFileViewPath] = useState<string | null>(null);
   const [isWorkspaceFileLoading, setIsWorkspaceFileLoading] = useState(false);
+  const [fileViewRichText, setFileViewRichText] = useState(true);
+  const [fileViewCopied, setFileViewCopied] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const tasksRef = useRef<Task[]>([]);
   const approvalsRef = useRef<Approval[]>([]);
@@ -4052,32 +4057,67 @@ export default function BoardDetailPage() {
       {/* File content viewer — must live OUTSIDE the aside so fixed inset-0 covers the full viewport
           (aside has CSS transform which creates a new containing block for fixed children) */}
       {workspaceFileViewPath && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
-          <div className="relative flex h-[80vh] w-[90vw] max-w-4xl flex-col rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-              <p className="font-mono text-sm font-semibold text-slate-700 truncate">{workspaceFileViewPath}</p>
-              <div className="flex shrink-0 items-center gap-2 ml-3">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
+          <div className="relative flex h-[88vh] w-[90vw] max-w-4xl flex-col rounded-xl bg-white shadow-2xl dark:bg-slate-900">
+            {/* Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-700">
+              <p className="min-w-0 flex-1 truncate font-mono text-sm font-semibold text-slate-700 dark:text-slate-200">
+                {workspaceFileViewPath}
+              </p>
+              <div className="ml-3 flex shrink-0 items-center gap-1">
+                {/* Rich / Raw toggle */}
+                <div className="flex items-center rounded-md border border-slate-200 text-xs dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setFileViewRichText(true)}
+                    className={`rounded-l-md px-2.5 py-1 transition ${fileViewRichText ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"}`}
+                  >
+                    Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFileViewRichText(false)}
+                    className={`rounded-r-md px-2.5 py-1 transition ${!fileViewRichText ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"}`}
+                  >
+                    Raw
+                  </button>
+                </div>
+                {/* Copy raw markdown */}
                 <button
                   type="button"
-                  title="Download"
-                  onClick={() => workspaceFileViewPath && void downloadWorkspaceFile(workspaceFileViewPath)}
-                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100"
+                  title="Copy raw markdown"
+                  onClick={() => {
+                    if (!workspaceFileContent) return;
+                    void navigator.clipboard.writeText(workspaceFileContent).then(() => {
+                      setFileViewCopied(true);
+                      setTimeout(() => setFileViewCopied(false), 2000);
+                    });
+                  }}
+                  className="flex items-center gap-1 rounded px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
-                  <Download size={13} />
-                  <span>Download</span>
+                  {fileViewCopied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                  <span>{fileViewCopied ? "Copied!" : "Copy"}</span>
                 </button>
+                {/* Close */}
                 <button
                   type="button"
-                  onClick={() => { setWorkspaceFileViewPath(null); setWorkspaceFileContent(null); }}
-                  className="rounded px-2 py-1 text-slate-500 hover:bg-slate-100"
+                  onClick={() => { setWorkspaceFileViewPath(null); setWorkspaceFileContent(null); setFileViewRichText(true); }}
+                  className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
                 >✕</button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto p-5">
+            {/* Content */}
+            <div className="flex-1 overflow-auto">
               {isWorkspaceFileLoading ? (
-                <p className="text-sm text-slate-500">Loading…</p>
+                <p className="p-5 text-sm text-slate-500">Loading…</p>
+              ) : fileViewRichText ? (
+                <div className="prose prose-sm prose-slate max-w-none p-6 dark:prose-invert">
+                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                    {workspaceFileContent ?? ""}
+                  </ReactMarkdown>
+                </div>
               ) : (
-                <pre className="whitespace-pre-wrap font-mono text-xs text-slate-800">{workspaceFileContent}</pre>
+                <pre className="p-5 font-mono text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{workspaceFileContent}</pre>
               )}
             </div>
           </div>
