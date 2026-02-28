@@ -4058,26 +4058,26 @@ export default function BoardDetailPage() {
           (aside has CSS transform which creates a new containing block for fixed children) */}
       {workspaceFileViewPath && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
-          <div className="relative flex h-[88vh] w-[90vw] max-w-4xl flex-col rounded-xl bg-white shadow-2xl dark:bg-slate-900">
+          <div className="relative flex h-[88vh] w-[90vw] max-w-4xl flex-col rounded-xl bg-[color:var(--surface)] shadow-2xl">
             {/* Header */}
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-700">
-              <p className="min-w-0 flex-1 truncate font-mono text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--border)] px-5 py-3">
+              <p className="min-w-0 flex-1 truncate font-mono text-sm font-semibold text-[color:var(--text-muted)]">
                 {workspaceFileViewPath}
               </p>
               <div className="ml-3 flex shrink-0 items-center gap-1">
                 {/* Rich / Raw toggle */}
-                <div className="flex items-center rounded-md border border-slate-200 text-xs dark:border-slate-700">
+                <div className="flex items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-0.5 text-xs">
                   <button
                     type="button"
                     onClick={() => setFileViewRichText(true)}
-                    className={`rounded-l-md px-2.5 py-1 transition ${fileViewRichText ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"}`}
+                    className={`rounded-md px-2.5 py-1 transition ${fileViewRichText ? "bg-[color:var(--surface)] text-[color:var(--text)] shadow-sm" : "text-[color:var(--text-quiet)] hover:text-[color:var(--text-muted)]"}`}
                   >
                     Preview
                   </button>
                   <button
                     type="button"
                     onClick={() => setFileViewRichText(false)}
-                    className={`rounded-r-md px-2.5 py-1 transition ${!fileViewRichText ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"}`}
+                    className={`rounded-md px-2.5 py-1 transition ${!fileViewRichText ? "bg-[color:var(--surface)] text-[color:var(--text)] shadow-sm" : "text-[color:var(--text-quiet)] hover:text-[color:var(--text-muted)]"}`}
                   >
                     Raw
                   </button>
@@ -4093,31 +4093,31 @@ export default function BoardDetailPage() {
                       setTimeout(() => setFileViewCopied(false), 2000);
                     });
                   }}
-                  className="flex items-center gap-1 rounded px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs text-[color:var(--text-muted)] hover:bg-[color:var(--surface-strong)]"
                 >
-                  {fileViewCopied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                  {fileViewCopied ? <Check size={13} className="text-[color:var(--success)]" /> : <Copy size={13} />}
                   <span>{fileViewCopied ? "Copied!" : "Copy"}</span>
                 </button>
                 {/* Close */}
                 <button
                   type="button"
                   onClick={() => { setWorkspaceFileViewPath(null); setWorkspaceFileContent(null); setFileViewRichText(true); }}
-                  className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+                  className="rounded-lg px-2 py-1 text-[color:var(--text-quiet)] hover:bg-[color:var(--surface-strong)] hover:text-[color:var(--text)]"
                 >✕</button>
               </div>
             </div>
             {/* Content */}
             <div className="flex-1 overflow-auto">
               {isWorkspaceFileLoading ? (
-                <p className="p-5 text-sm text-slate-500">Loading…</p>
+                <p className="p-5 text-sm text-[color:var(--text-muted)]">Loading…</p>
               ) : fileViewRichText ? (
-                <div className="prose prose-sm prose-slate max-w-none p-6 dark:prose-invert">
+                <div className="prose prose-sm max-w-none p-6 dark:prose-invert text-[color:var(--text)]">
                   <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                     {workspaceFileContent ?? ""}
                   </ReactMarkdown>
                 </div>
               ) : (
-                <pre className="p-5 font-mono text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{workspaceFileContent}</pre>
+                <pre className="p-5 font-mono text-xs leading-relaxed text-[color:var(--text)] whitespace-pre-wrap">{workspaceFileContent}</pre>
               )}
             </div>
           </div>
