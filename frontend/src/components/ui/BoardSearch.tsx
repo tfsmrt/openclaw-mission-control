@@ -172,12 +172,12 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
             className={cn(
               "relative z-10 w-full max-w-lg overflow-hidden rounded-xl border shadow-2xl",
               "border-slate-200 bg-white",
-              "dark:border-slate-700 dark:bg-slate-900",
+              "dark:border-slate-700 dark:bg-slate-800",
             )}
           >
             {/* Input row */}
-            <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-              <Search className="h-4 w-4 flex-shrink-0 text-slate-400" />
+            <div className="flex items-center gap-3 border-b border-slate-100 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+              <Search className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
               <input
                 ref={inputRef}
                 value={query}
@@ -185,8 +185,8 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
                 placeholder="Search tasks and comments…"
                 className={cn(
                   "flex-1 bg-transparent text-sm outline-none",
-                  "text-slate-900 placeholder-slate-400",
-                  "dark:text-slate-100 dark:placeholder-slate-500",
+                  "text-slate-900 placeholder:text-slate-400",
+                  "dark:text-slate-100 dark:placeholder:text-slate-500",
                 )}
               />
               {loading && (
@@ -218,7 +218,7 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
                 <>
                   {results.tasks.length > 0 && (
                     <div>
-                      <div className="border-b border-slate-100 px-4 py-2 dark:border-slate-800">
+                      <div className="border-b border-slate-100 px-4 py-2 dark:border-slate-700">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                           Tasks ({results.tasks.length})
                         </span>
@@ -230,7 +230,7 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
                           onClick={() => handleTaskClick(t.id)}
                           className={cn(
                             "flex w-full items-center gap-3 border-b px-4 py-3 text-left transition last:border-b-0",
-                            "border-slate-50 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800",
+                            "border-slate-50 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800",
                           )}
                         >
                           <FileText className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
@@ -252,7 +252,7 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
 
                   {results.comments.length > 0 && (
                     <div>
-                      <div className="border-b border-slate-100 px-4 py-2 dark:border-slate-800">
+                      <div className="border-b border-slate-100 px-4 py-2 dark:border-slate-700">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                           Comments ({results.comments.length})
                         </span>
@@ -264,7 +264,7 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
                           onClick={() => handleTaskClick(c.task_id)}
                           className={cn(
                             "flex w-full items-start gap-3 border-b px-4 py-3 text-left transition last:border-b-0",
-                            "border-slate-50 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800",
+                            "border-slate-50 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800",
                           )}
                         >
                           <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
