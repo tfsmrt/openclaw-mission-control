@@ -86,7 +86,7 @@ export function NotificationBell() {
           className={cn(
             "absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-xl border shadow-lg",
             "border-[color:var(--border)] bg-[color:var(--surface)]",
-            "dark:border-slate-700 dark:bg-[color:var(--text)]",
+            "dark:border-slate-700",
           )}
         >
           {/* Header */}

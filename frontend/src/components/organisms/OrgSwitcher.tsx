@@ -150,7 +150,7 @@ export function OrgSwitcher() {
             <SelectValue placeholder="Select organization" />
           </span>
         </SelectTrigger>
-        <SelectContent className="min-w-[220px] rounded-md border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-xl dark:bg-[color:var(--text)]">
+        <SelectContent className="min-w-[220px] rounded-md border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-xl">
           <div className="px-3 pb-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-quiet">
             Org switcher
           </div>

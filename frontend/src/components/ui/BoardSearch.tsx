@@ -153,7 +153,7 @@ export function BoardSearch({ boardId, onTaskSelect }: BoardSearchProps) {
       >
         <Search className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Search</span>
-        <kbd className="hidden rounded border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-1 py-0.5 text-[10px] text-quiet dark:bg-[color:var(--text)] sm:inline">
+        <kbd className="hidden rounded border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-1 py-0.5 text-[10px] text-quiet sm:inline">
           ⌘K
         </kbd>
       </button>

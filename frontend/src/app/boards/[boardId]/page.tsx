@@ -3209,7 +3209,7 @@ export default function BoardDetailPage() {
 
           <div className="relative flex flex-1 min-h-0 gap-6 p-6 overflow-hidden">
             {isOrgAdmin ? (
-              <aside className="flex h-full w-64 flex-col rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm dark:bg-[color:var(--text)]">
+              <aside className="flex h-full w-64 flex-col rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
                 <div className="flex items-center justify-between border-b border-[color:var(--border)] px-4 py-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-quiet">

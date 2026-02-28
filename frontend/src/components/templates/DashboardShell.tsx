@@ -71,7 +71,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="h-screen overflow-hidden flex flex-col bg-app text-strong">
-      <header className="shrink-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm dark:bg-[color:var(--text)] dark:shadow-slate-900/50">
+      <header className="shrink-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm dark:shadow-slate-900/50">
         <div className="grid grid-cols-[260px_1fr_auto] items-center gap-0 py-3">
           <div className="flex items-center px-6">
             <BrandMark />
@@ -97,7 +97,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </SignedIn>
         </div>
       </header>
-      <div className="grid flex-1 min-h-0 grid-cols-[260px_1fr] grid-rows-[1fr] bg-[color:var(--surface-muted)] dark:bg-[color:var(--text)]">
+      <div className="grid flex-1 min-h-0 grid-cols-[260px_1fr] grid-rows-[1fr] bg-[color:var(--surface-muted)]">
         {children}
       </div>
     </div>

@@ -106,7 +106,7 @@ export function UserMenu({
           type="button"
           className={cn(
             "group inline-flex h-9 items-center gap-2 rounded-[10px] bg-transparent px-1 py-1 transition",
-            "hover:bg-[color:var(--surface)]/70",
+            "hover:bg-[color:var(--surface-strong)]",
             "focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--neutral-300,var(--border-strong))] focus-visible:ring-offset-2 focus-visible:ring-offset-white",
             "data-[state=open]:bg-[color:var(--surface)]",
             className,
@@ -139,7 +139,7 @@ export function UserMenu({
       <PopoverContent
         align="end"
         sideOffset={12}
-        className="w-80 overflow-hidden rounded-2xl border border-[color:var(--neutral-200,var(--border))] bg-[color:var(--surface)]/95 p-0 shadow-[0_8px_32px_rgba(10,22,40,0.08)] backdrop-blur/95 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+        className="w-80 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-overlay)] p-0 shadow-[var(--shadow-float)] backdrop-blur-md"
       >
         <div className="border-b border-[color:var(--border)] px-4 py-3">
           <div className="flex items-center gap-3">

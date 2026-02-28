@@ -66,11 +66,11 @@ export function DashboardPageLayout({
         <DashboardSidebar />
         <main
           ref={mainRef}
-          className={cn("flex-1 overflow-y-auto bg-[color:var(--surface-muted)] dark:bg-[color:var(--text)]", mainClassName)}
+          className={cn("flex-1 overflow-y-auto bg-[color:var(--surface-muted)]", mainClassName)}
         >
           <div
             className={cn(
-              "border-b border-[color:var(--border)] bg-[color:var(--surface)] dark:bg-[color:var(--text)]",
+              "border-b border-[color:var(--border)] bg-[color:var(--surface)]",
               stickyHeader && "sticky top-0 z-30",
               headerClassName,
             )}
