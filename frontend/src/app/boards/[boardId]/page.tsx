@@ -25,7 +25,7 @@ import {
   X,
 } from "lucide-react";
 
-import { Markdown } from "@/components/atoms/Markdown";
+import { Markdown, CollapsibleMarkdown } from "@/components/atoms/Markdown";
 import { StatusDot } from "@/components/atoms/StatusDot";
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { TaskBoard } from "@/components/organisms/TaskBoard";
@@ -3791,7 +3791,7 @@ export default function BoardDetailPage() {
               </p>
               {selectedTask?.description ? (
                 <div className="prose prose-sm max-w-none dark:prose-invert text-[color:var(--text)]">
-                  <Markdown
+                  <CollapsibleMarkdown
                     content={selectedTask.description}
                     variant="description"
                   />

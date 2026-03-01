@@ -5,6 +5,9 @@ import {
   cloneElement,
   isValidElement,
   memo,
+  useState,
+  useRef,
+  useEffect,
   type HTMLAttributes,
   type ReactElement,
   type ReactNode,
@@ -108,7 +111,7 @@ const MARKDOWN_CODE_COMPONENTS: Components = {
   pre: ({ node: _node, className, ...props }) => (
     <pre
       className={cn(
-        "my-3 overflow-x-auto rounded-lg bg-[color:var(--text)] p-3 text-xs leading-relaxed text-[color:var(--text-inverse)]",
+        "my-3 overflow-x-auto rounded-lg bg-slate-800 p-3 text-xs leading-relaxed text-slate-100 dark:bg-slate-900 dark:text-slate-200",
         className,
       )}
       {...props}
@@ -281,3 +284,54 @@ export const Markdown = memo(function Markdown({
 });
 
 Markdown.displayName = "Markdown";
+
+const COLLAPSE_LINE_HEIGHT = 24; // px per line
+const COLLAPSE_MAX_LINES = 6;
+const COLLAPSE_MAX_HEIGHT = COLLAPSE_LINE_HEIGHT * COLLAPSE_MAX_LINES;
+
+export const CollapsibleMarkdown = memo(function CollapsibleMarkdown({
+  content,
+  variant = "description",
+}: {
+  content: string;
+  variant?: MarkdownVariant;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const innerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (innerRef.current) {
+      setOverflows(innerRef.current.scrollHeight > COLLAPSE_MAX_HEIGHT + 4);
+    }
+  }, [content]);
+
+  return (
+    <div>
+      <div
+        className={cn(
+          "relative overflow-hidden transition-all duration-200",
+          !expanded && overflows && "max-h-[144px]",
+        )}
+      >
+        <div ref={innerRef}>
+          <Markdown content={content} variant={variant} />
+        </div>
+        {!expanded && overflows && (
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[color:var(--surface)] to-transparent" />
+        )}
+      </div>
+      {overflows && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 text-xs font-medium text-[color:var(--accent)] hover:underline"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  );
+});
+
+CollapsibleMarkdown.displayName = "CollapsibleMarkdown";
