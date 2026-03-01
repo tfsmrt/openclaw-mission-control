@@ -12,8 +12,10 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlmodel import col, select
 
+from app.core.encryption import decrypt_secret
 from app.core.time import utcnow
 from app.models.agents import Agent
+from app.models.board_secrets import BoardSecret
 from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.services.openclaw.constants import CHECKIN_DEADLINE_AFTER_WAKE
@@ -105,6 +107,22 @@ class AgentLifecycleOrchestrator(OpenClawDBService):
             await self.session.refresh(locked)
             return locked
 
+        # Load board secrets for injection into agent workspace files.
+        board_secrets: list[dict[str, str]] = []
+        if board is not None:
+            secrets_result = await self.session.exec(
+                select(BoardSecret).where(BoardSecret.board_id == board.id)
+            )
+            for s in secrets_result.all():
+                try:
+                    board_secrets.append({
+                        "key": s.key,
+                        "value": decrypt_secret(s.encrypted_value),
+                        "description": s.description,
+                    })
+                except Exception:
+                    pass  # skip malformed secrets silently
+
         try:
             await OpenClawGatewayProvisioner().apply_agent_lifecycle(
                 agent=locked,
@@ -118,6 +136,7 @@ class AgentLifecycleOrchestrator(OpenClawDBService):
                 wake=wake,
                 deliver_wakeup=deliver_wakeup,
                 wakeup_verb=wakeup_verb,
+                board_secrets=board_secrets,
             )
         except OpenClawGatewayError as exc:
             locked.last_provision_error = str(exc)

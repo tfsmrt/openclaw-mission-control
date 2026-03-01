@@ -839,6 +839,7 @@ class BaseAgentLifecycleManager(ABC):
         options: ProvisionOptions,
         board: Board | None = None,
         session_label: str | None = None,
+        board_secrets: list[dict[str, str]] | None = None,
     ) -> None:
         if not self._gateway.workspace_root:
             msg = "gateway_workspace_root is required"
@@ -864,6 +865,7 @@ class BaseAgentLifecycleManager(ABC):
             user=user,
             board=board,
         )
+        context["board_secrets"] = board_secrets or []  # type: ignore[assignment]
         context = await self._augment_context(agent=agent, context=context)
         # Always attempt to sync Mission Control's full template set.
         # Do not introspect gateway defaults (avoids touching gateway "main" agent state).
@@ -1074,6 +1076,7 @@ class OpenClawGatewayProvisioner:
         wake: bool = True,
         deliver_wakeup: bool = True,
         wakeup_verb: str | None = None,
+        board_secrets: list[dict[str, str]] | None = None,
     ) -> None:
         """Create/update an agent, sync all template files, and optionally wake the agent.
 
@@ -1119,6 +1122,7 @@ class OpenClawGatewayProvisioner:
                 overwrite=overwrite,
             ),
             session_label=agent.name or "Gateway Agent",
+            board_secrets=board_secrets or [],
         )
 
         if reset_session:

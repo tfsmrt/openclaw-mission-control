@@ -49,3 +49,14 @@ jq -r '
 
 ## API safety
 If no confident match exists for current intent, ask one clarifying question.
+{% if board_secrets %}
+
+## Board Secrets (credentials & tool access)
+The following secrets have been provisioned for this board. Use them when accessing external tools and services:
+
+{% for secret in board_secrets %}
+- `{{ secret.key }}={{ secret.value }}`{% if secret.description %} — {{ secret.description }}{% endif %}
+
+{% endfor %}
+**Security:** Never log, print, or expose these values in task output, comments, or reports.
+{% endif %}

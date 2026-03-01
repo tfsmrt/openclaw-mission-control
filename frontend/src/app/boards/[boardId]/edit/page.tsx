@@ -59,6 +59,7 @@ import SearchableSelect from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { localDateInputToUtcIso, toLocalDateInput } from "@/lib/datetime";
 import { Markdown } from "@/components/atoms/Markdown";
+import { BoardSecretsPanel } from "@/components/molecules/BoardSecretsPanel";
 
 const slugify = (value: string) =>
   value
@@ -1261,6 +1262,17 @@ export default function EditBoardPage() {
                   );
                 })}
               </div>
+            </section>
+
+            {/* Board Secrets */}
+            <section className="space-y-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6">
+              <div>
+                <h2 className="text-base font-semibold text-strong">Secrets</h2>
+                <p className="mt-0.5 text-sm text-quiet">
+                  Store credentials and API keys for agents to use when accessing external tools (GitHub, etc.). Values are encrypted at rest.
+                </p>
+              </div>
+              {boardId && <BoardSecretsPanel boardId={boardId} />}
             </section>
           </form>
         </div>
