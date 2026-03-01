@@ -4859,7 +4859,7 @@ export default function BoardDetailPage() {
               </div>
             ) : null}
 
-            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 text-sm text-muted">
+            <div className="mb-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 text-sm text-muted">
               <p className="font-semibold text-strong">What happens</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 <li>
