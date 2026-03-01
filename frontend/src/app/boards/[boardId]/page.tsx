@@ -3292,7 +3292,7 @@ export default function BoardDetailPage() {
                             <StatusDot
                               status={agent.status}
                               variant="agent"
-                              className="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--surface-muted)]"
+                              className="absolute -right-1 -bottom-1 h-3.5 w-3.5 rounded-full border-2 border-[color:var(--surface-muted)]"
                             />
                           </div>
                           <div className="min-w-0 flex-1">
