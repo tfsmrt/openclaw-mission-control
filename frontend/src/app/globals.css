@@ -345,8 +345,10 @@
   color: #f1f5f9;
   border-color: #334155;
 }
+input::placeholder,
+textarea::placeholder { color: #94a3b8; }
 .dark input::placeholder,
-.dark textarea::placeholder { color: #64748b; }
+.dark textarea::placeholder { color: #475569; }
 .dark input:focus,
 .dark textarea:focus,
 .dark select:focus { border-color: #3b82f6; }
