@@ -3,12 +3,12 @@ import { cn } from "@/lib/utils";
 type StatusDotVariant = "agent" | "approval" | "task";
 
 const AGENT_STATUS_DOT_CLASS_BY_STATUS: Record<string, string> = {
-  online: "bg-[color:var(--success)]",
-  busy: "bg-[color:var(--warning)]",
-  provisioning: "bg-[color:var(--warning)]",
-  updating: "bg-sky-500",
+  online: "bg-emerald-500",
+  busy: "bg-[color:var(--accent)]",
+  provisioning: "bg-[color:var(--accent)]",
+  updating: "bg-[color:var(--accent)]",
   deleting: "bg-[color:var(--danger)]",
-  offline: "bg-[color:var(--surface-strong)]",
+  offline: "bg-slate-500",
 };
 
 const APPROVAL_STATUS_DOT_CLASS_BY_STATUS: Record<string, string> = {
