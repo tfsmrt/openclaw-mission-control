@@ -12,7 +12,7 @@ import asyncio
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar
 from uuid import UUID, uuid4
 
@@ -867,8 +867,19 @@ class AgentLifecycleService(OpenClawDBService):
     @classmethod
     def with_computed_status(cls, agent: Agent) -> Agent:
         now = utcnow()
-        if agent.status in {"deleting", "updating"}:
+        if agent.status == "deleting":
             return agent
+        # Auto-recover agents stuck in "updating" if the update is stale (>15 min).
+        # This handles gateway rate-limit failures that leave agents permanently stuck.
+        if agent.status == "updating":
+            stale_threshold = timedelta(minutes=15)
+            stuck_since = agent.updated_at if agent.updated_at else agent.created_at
+            if stuck_since and (now - stuck_since) > stale_threshold:
+                agent.status = "online"
+                agent.provision_action = None
+                agent.last_provision_error = None
+            else:
+                return agent
         if agent.last_seen_at is None:
             agent.status = "provisioning"
         elif now - agent.last_seen_at > OFFLINE_AFTER:

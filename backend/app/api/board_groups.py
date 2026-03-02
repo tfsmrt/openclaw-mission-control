@@ -264,6 +264,10 @@ async def _sync_gateway_heartbeats(
     for gateway_id, gateway_agents in agents_by_gateway_id.items():
         gateway = gateway_by_id.get(gateway_id)
         if gateway is None or not gateway.url or not gateway.workspace_root:
+            for agent in gateway_agents:
+                agent.last_provision_error = "gateway not configured"
+                agent.updated_at = utcnow()
+                session.add(agent)
             failed_agent_ids.extend([agent.id for agent in gateway_agents])
             continue
         try:
@@ -271,8 +275,23 @@ async def _sync_gateway_heartbeats(
                 gateway,
                 gateway_agents,
             )
-        except OpenClawGatewayError:
+            # Clear any previous error and reset to online on success
+            for agent in gateway_agents:
+                if agent.provision_action == "update":
+                    agent.provision_action = None
+                    agent.last_provision_error = None
+                    agent.status = "online"
+                    agent.updated_at = utcnow()
+                    session.add(agent)
+        except OpenClawGatewayError as exc:
+            error_msg = str(exc) if str(exc) else "gateway sync failed"
+            for agent in gateway_agents:
+                agent.last_provision_error = error_msg
+                agent.updated_at = utcnow()
+                session.add(agent)
             failed_agent_ids.extend([agent.id for agent in gateway_agents])
+    if any(True for _ in failed_agent_ids):
+        await session.commit()
     return failed_agent_ids
 
 
