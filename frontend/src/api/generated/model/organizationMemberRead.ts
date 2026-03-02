@@ -13,6 +13,7 @@ import type { OrganizationUserRead } from "./organizationUserRead";
 export interface OrganizationMemberRead {
   id: string;
   organization_id: string;
+  organization_name?: string | null;
   user_id: string;
   role: string;
   all_boards_read: boolean;

@@ -29,5 +29,6 @@ export function useOrganizationMembership(
     membershipQuery,
     member,
     isAdmin: isOrganizationAdminRole(member?.role),
+    organizationName: member?.organization_name ?? null,
   };
 }

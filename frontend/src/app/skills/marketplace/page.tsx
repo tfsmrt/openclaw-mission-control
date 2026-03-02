@@ -163,7 +163,7 @@ export default function SkillsMarketplacePage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isSignedIn } = useAuth();
-  const { isAdmin } = useOrganizationMembership(isSignedIn);
+  const { isAdmin, organizationName } = useOrganizationMembership(isSignedIn);
   const [selectedSkill, setSelectedSkill] =
     useState<MarketplaceSkillCardRead | null>(null);
   const [gatewayInstalledById, setGatewayInstalledById] = useState<
@@ -774,13 +774,19 @@ export default function SkillsMarketplacePage() {
         }}
         title="Skills Marketplace"
         description={
-          selectedPack
-            ? `${totalSkills} skill${
-                totalSkills === 1 ? "" : "s"
-              } for ${selectedPack.name}.`
-            : `${totalSkills} skill${
-                totalSkills === 1 ? "" : "s"
-              } synced from packs.`
+          <span className="flex items-center gap-2">
+            <span>
+              {selectedPack
+                ? `${totalSkills} skill${totalSkills === 1 ? "" : "s"} for ${selectedPack.name}.`
+                : `${totalSkills} skill${totalSkills === 1 ? "" : "s"} synced from packs.`}
+            </span>
+            {organizationName && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-2 py-0.5 text-xs font-medium text-muted">
+                <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--accent)]" />
+                {organizationName}
+              </span>
+            )}
+          </span>
         }
         isAdmin={isAdmin}
         adminOnlyMessage="Only organization owners and admins can manage skills."

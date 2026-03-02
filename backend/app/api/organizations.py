@@ -410,6 +410,7 @@ async def get_my_membership(
         organization_member_id=ctx.member.id,
     ).all(session)
     model = _member_to_read(ctx.member, user)
+    model.organization_name = ctx.organization.name
     model.board_access = [
         OrganizationBoardAccessRead.model_validate(row, from_attributes=True) for row in access_rows
     ]

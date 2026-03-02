@@ -53,6 +53,7 @@ class OrganizationMemberRead(SQLModel):
 
     id: UUID
     organization_id: UUID
+    organization_name: str | None = None
     user_id: UUID
     role: str
     all_boards_read: bool

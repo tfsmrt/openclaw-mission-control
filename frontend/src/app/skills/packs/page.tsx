@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/auth/clerk";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,7 +44,7 @@ const PACKS_SORTABLE_COLUMNS = [
 export default function SkillsPacksPage() {
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
-  const { isAdmin } = useOrganizationMembership(isSignedIn);
+  const { isAdmin, organizationName } = useOrganizationMembership(isSignedIn);
   const [deleteTarget, setDeleteTarget] = useState<SkillPackRead | null>(null);
   const [syncingPackIds, setSyncingPackIds] = useState<Set<string>>(new Set());
   const [isSyncingAll, setIsSyncingAll] = useState(false);
@@ -107,8 +107,10 @@ export default function SkillsPacksPage() {
     deleteMutation.mutate({ packId: deleteTarget.id });
   };
 
+  const syncingRef = useRef(new Set<string>());
   const handleSyncPack = async (pack: SkillPackRead) => {
-    if (isSyncingAll || syncingPackIds.has(pack.id)) return;
+    if (isSyncingAll || syncingPackIds.has(pack.id) || syncingRef.current.has(pack.id)) return;
+    syncingRef.current.add(pack.id);
     setSyncAllError(null);
     setSyncWarnings([]);
 
@@ -125,6 +127,7 @@ export default function SkillsPacksPage() {
         setSyncWarnings(response.data.warnings ?? []);
       }
     } finally {
+      syncingRef.current.delete(pack.id);
       setSyncingPackIds((previous) => {
         const next = new Set(previous);
         next.delete(pack.id);
@@ -198,7 +201,17 @@ export default function SkillsPacksPage() {
           forceRedirectUrl: "/skills/packs",
         }}
         title="Skill Packs"
-        description={`${packs.length} pack${packs.length === 1 ? "" : "s"} configured.`}
+        description={
+          <span className="flex items-center gap-2">
+            <span>{packs.length} pack{packs.length === 1 ? "" : "s"} configured.</span>
+            {organizationName && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-2 py-0.5 text-xs font-medium text-muted">
+                <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--accent)]" />
+                {organizationName}
+              </span>
+            )}
+          </span>
+        }
         headerActions={
           isAdmin ? (
             <div className="flex items-center gap-2">
