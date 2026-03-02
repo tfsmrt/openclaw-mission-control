@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Trash2, MoveRight, X, CheckSquare } from "lucide-react";
+import { Trash2, MoveRight, X, CheckSquare, ShieldCheck } from "lucide-react";
 
 import { TaskCard } from "@/components/molecules/TaskCard";
 import { parseApiDatetime } from "@/lib/datetime";
@@ -40,6 +40,7 @@ type TaskBoardProps = {
   onTaskMove?: (taskId: string, status: TaskStatus) => void | Promise<void>;
   onBulkStatusChange?: (taskIds: string[], status: TaskStatus) => Promise<void>;
   onBulkDelete?: (taskIds: string[]) => Promise<void>;
+  onBulkApprove?: (taskIds: string[]) => Promise<void>;
   readOnly?: boolean;
 };
 
@@ -143,6 +144,7 @@ export const TaskBoard = memo(function TaskBoard({
   readOnly = false,
   onBulkStatusChange,
   onBulkDelete,
+  onBulkApprove,
 }: TaskBoardProps) {
   const boardRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -182,6 +184,17 @@ export const TaskBoard = memo(function TaskBoard({
       setIsBulkBusy(false);
     }
   }, [bulkMoveTo, selectedIds, onBulkStatusChange, clearSelection]);
+
+  const handleBulkApprove = useCallback(async () => {
+    if (selectedIds.size === 0 || !onBulkApprove) return;
+    setIsBulkBusy(true);
+    try {
+      await onBulkApprove(Array.from(selectedIds));
+      clearSelection();
+    } finally {
+      setIsBulkBusy(false);
+    }
+  }, [selectedIds, onBulkApprove, clearSelection]);
 
   const handleBulkDelete = useCallback(async () => {
     if (selectedIds.size === 0 || !onBulkDelete) return;
@@ -465,6 +478,20 @@ export const TaskBoard = memo(function TaskBoard({
             Move
           </button>
         </div>
+        {onBulkApprove && (
+          <>
+            <div className="mx-1 h-5 w-px bg-[color:var(--border)]" />
+            <button
+              type="button"
+              onClick={handleBulkApprove}
+              disabled={isBulkBusy}
+              className="flex items-center gap-1 rounded bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Approve all
+            </button>
+          </>
+        )}
         <div className="mx-1 h-5 w-px bg-[color:var(--border)]" />
         {/* Delete */}
         <button

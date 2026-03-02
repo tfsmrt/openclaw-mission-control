@@ -483,3 +483,69 @@ async def update_approval(
             )
     reads = await _approval_reads(session, [approval])
     return reads[0]
+
+
+# ---------------------------------------------------------------------------
+# Bulk approval
+# ---------------------------------------------------------------------------
+
+from pydantic import BaseModel as _BaseModel  # noqa: E402
+
+
+class BulkApprovalAction(_BaseModel):
+    task_ids: list[UUID]
+    status: ApprovalStatus  # "approved" or "rejected"
+
+
+class BulkApprovalResult(_BaseModel):
+    updated: int
+    failed: int
+
+
+@router.post(
+    "/bulk",
+    response_model=BulkApprovalResult,
+    tags=["approvals"],
+    summary="Bulk approve or reject pending approvals by task ids",
+)
+async def bulk_update_approvals(
+    board_id: UUID,
+    payload: BulkApprovalAction,
+    board: Board = BOARD_USER_WRITE_DEP,
+    session: AsyncSession = SESSION_DEP,
+) -> BulkApprovalResult:
+    """Resolve all pending approvals for the given task ids in one call."""
+    if payload.status not in {"approved", "rejected"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="status must be 'approved' or 'rejected'",
+        )
+    updated = 0
+    failed = 0
+    now = utcnow()
+    for task_id in payload.task_ids:
+        result = await session.exec(
+            select(Approval).where(
+                Approval.board_id == board_id,
+                Approval.task_id == task_id,
+                col(Approval.status) == "pending",
+            )
+        )
+        approvals = result.all()
+        if not approvals:
+            failed += 1
+            continue
+        for approval in approvals:
+            prior_status = approval.status
+            approval.status = payload.status
+            approval.resolved_at = now
+            session.add(approval)
+            try:
+                await _notify_lead_on_approval_resolution(
+                    session=session, board=board, approval=approval
+                )
+            except Exception:
+                pass
+        updated += len(approvals)
+    await session.commit()
+    return BulkApprovalResult(updated=updated, failed=failed)

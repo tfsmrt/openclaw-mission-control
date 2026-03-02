@@ -2869,6 +2869,31 @@ export default function BoardDetailPage() {
     [boardId, pushToast],
   );
 
+  const handleBulkApprove = useCallback(
+    async (taskIds: string[]) => {
+      if (!boardId) return;
+      try {
+        await customFetch(`/api/v1/boards/${boardId}/approvals/bulk`, {
+          method: "POST",
+          body: JSON.stringify({ task_ids: taskIds, status: "approved" }),
+        });
+        // Refresh approvals count on affected tasks
+        setTasks((prev) =>
+          prev.map((t) =>
+            taskIds.includes(t.id)
+              ? { ...t, approvals_pending_count: 0 }
+              : t,
+          ),
+        );
+      } catch (err) {
+        const message = formatActionError(err, "Bulk approve failed.");
+        setError(message);
+        pushToast(message);
+      }
+    },
+    [boardId, pushToast],
+  );
+
   const handleBulkDelete = useCallback(
     async (taskIds: string[]) => {
       if (!boardId) return;
@@ -3643,6 +3668,7 @@ export default function BoardDetailPage() {
                       onTaskMove={canWrite ? handleTaskMove : undefined}
                       onBulkStatusChange={canWrite ? handleBulkStatusChange : undefined}
                       onBulkDelete={canWrite ? handleBulkDelete : undefined}
+                      onBulkApprove={canWrite ? handleBulkApprove : undefined}
                       readOnly={!canWrite}
                     />
                   ) : (
