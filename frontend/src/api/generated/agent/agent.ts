@@ -22,6 +22,7 @@ import type {
 
 import type {
   AgentCreate,
+  AgentGetSecrets200,
   AgentHealthStatusResponse,
   AgentNudge,
   AgentRead,
@@ -4617,3 +4618,177 @@ export const useAgentMainBroadcastLeadMessage = <
     queryClient,
   );
 };
+/**
+ * Returns all secrets provisioned for the agent's board as key/value pairs.
+
+Call this **once per session** before any task that requires external credentials. Export the returned values as environment variables and use them in commands.
+ * @summary Fetch board secrets for this agent's board
+ */
+export type agentGetSecretsResponse200 = {
+  data: AgentGetSecrets200;
+  status: 200;
+};
+
+export type agentGetSecretsResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type agentGetSecretsResponseSuccess = agentGetSecretsResponse200 & {
+  headers: Headers;
+};
+export type agentGetSecretsResponseError = agentGetSecretsResponse422 & {
+  headers: Headers;
+};
+
+export type agentGetSecretsResponse =
+  | agentGetSecretsResponseSuccess
+  | agentGetSecretsResponseError;
+
+export const getAgentGetSecretsUrl = () => {
+  return `/api/v1/agent/secrets`;
+};
+
+export const agentGetSecrets = async (
+  options?: RequestInit,
+): Promise<agentGetSecretsResponse> => {
+  return customFetch<agentGetSecretsResponse>(getAgentGetSecretsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAgentGetSecretsQueryKey = () => {
+  return [`/api/v1/agent/secrets`] as const;
+};
+
+export const getAgentGetSecretsQueryOptions = <
+  TData = Awaited<ReturnType<typeof agentGetSecrets>>,
+  TError = HTTPValidationError,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof agentGetSecrets>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAgentGetSecretsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof agentGetSecrets>>> = ({
+    signal,
+  }) => agentGetSecrets({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof agentGetSecrets>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type AgentGetSecretsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof agentGetSecrets>>
+>;
+export type AgentGetSecretsQueryError = HTTPValidationError;
+
+export function useAgentGetSecrets<
+  TData = Awaited<ReturnType<typeof agentGetSecrets>>,
+  TError = HTTPValidationError,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof agentGetSecrets>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentGetSecrets>>,
+          TError,
+          Awaited<ReturnType<typeof agentGetSecrets>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useAgentGetSecrets<
+  TData = Awaited<ReturnType<typeof agentGetSecrets>>,
+  TError = HTTPValidationError,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof agentGetSecrets>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentGetSecrets>>,
+          TError,
+          Awaited<ReturnType<typeof agentGetSecrets>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useAgentGetSecrets<
+  TData = Awaited<ReturnType<typeof agentGetSecrets>>,
+  TError = HTTPValidationError,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof agentGetSecrets>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Fetch board secrets for this agent's board
+ */
+
+export function useAgentGetSecrets<
+  TData = Awaited<ReturnType<typeof agentGetSecrets>>,
+  TError = HTTPValidationError,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof agentGetSecrets>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getAgentGetSecretsQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

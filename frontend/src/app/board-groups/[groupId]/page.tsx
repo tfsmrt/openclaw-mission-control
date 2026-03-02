@@ -18,7 +18,9 @@ import {
 import { ApiError } from "@/api/mutator";
 import {
   applyBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatPost,
+  type getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse,
   type getBoardGroupSnapshotApiV1BoardGroupsGroupIdSnapshotGetResponse,
+  useGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet,
   useGetBoardGroupSnapshotApiV1BoardGroupsGroupIdSnapshotGet,
 } from "@/api/generated/board-groups/board-groups";
 import {
@@ -33,6 +35,7 @@ import {
 } from "@/api/generated/organizations/organizations";
 import type {
   BoardGroupHeartbeatApplyResult,
+  BoardGroupHeartbeatConfig,
   BoardGroupMemoryRead,
   OrganizationMemberRead,
 } from "@/api/generated/model";
@@ -103,6 +106,107 @@ const canWriteGroupBoards = (
   );
 };
 
+function PaceSelector({
+  amount,
+  unit,
+  every,
+  disabled,
+  isApplying,
+  error,
+  result,
+  onAmountChange,
+  onUnitChange,
+  onApply,
+}: {
+  amount: string;
+  unit: HeartbeatUnit;
+  every: string;
+  disabled: boolean;
+  isApplying: boolean;
+  error: string | null;
+  result: BoardGroupHeartbeatApplyResult | null;
+  onAmountChange: (v: string) => void;
+  onUnitChange: (v: HeartbeatUnit) => void;
+  onApply: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1">
+        {HEARTBEAT_PRESETS.map((preset) => {
+          const value = `${preset.amount}${preset.unit}`;
+          return (
+            <button
+              key={value}
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                onAmountChange(String(preset.amount));
+                onUnitChange(preset.unit);
+              }}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-semibold transition-colors border",
+                every === value
+                  ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-white"
+                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-muted hover:border-[color:var(--border-strong)] hover:text-strong",
+                disabled && "opacity-50 cursor-not-allowed",
+              )}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          value={amount}
+          onChange={(e) => onAmountChange(e.target.value)}
+          className={cn(
+            "h-8 w-20 rounded-md border bg-[color:var(--surface)] px-2 text-xs text-strong shadow-sm",
+            every ? "border-[color:var(--border)]" : "border-[color:var(--danger-border)]",
+            disabled && "opacity-60 cursor-not-allowed",
+          )}
+          placeholder="10"
+          inputMode="numeric"
+          type="number"
+          min={1}
+          step={1}
+          disabled={disabled}
+        />
+        <select
+          value={unit}
+          onChange={(e) => onUnitChange(e.target.value as HeartbeatUnit)}
+          className={cn(
+            "h-8 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs text-strong shadow-sm",
+            disabled && "opacity-60 cursor-not-allowed",
+          )}
+          disabled={disabled}
+        >
+          <option value="s">seconds</option>
+          <option value="m">minutes</option>
+          <option value="h">hours</option>
+          <option value="d">days</option>
+        </select>
+        <Button
+          size="sm"
+          onClick={onApply}
+          disabled={isApplying || !every || disabled}
+        >
+          {isApplying ? "Applying…" : "Apply"}
+        </Button>
+      </div>
+      {error && (
+        <p className="text-xs text-danger">{error}</p>
+      )}
+      {result && !error && (
+        <p className="text-xs text-success">
+          ✓ Applied to {result.updated_agent_ids.length} agent{result.updated_agent_ids.length !== 1 ? "s" : ""}
+          {result.failed_agent_ids.length > 0 ? `, ${result.failed_agent_ids.length} failed` : ""}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function GroupChatMessageCard({ message }: { message: BoardGroupMemoryRead }) {
   return (
     <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
@@ -143,6 +247,13 @@ const HAS_ALL_MENTION_RE = /(^|\s)@all\b/i;
 
 type HeartbeatUnit = "s" | "m" | "h" | "d";
 
+function parseEvery(every: string | null | undefined): { amount: string; unit: HeartbeatUnit } | null {
+  if (!every) return null;
+  const match = every.match(/^(\d+)([smhd])$/);
+  if (!match) return null;
+  return { amount: match[1], unit: match[2] as HeartbeatUnit };
+}
+
 const HEARTBEAT_PRESETS: Array<{
   label: string;
   amount: number;
@@ -165,8 +276,9 @@ export default function BoardGroupDetailPage() {
   const groupId = Array.isArray(groupIdParam) ? groupIdParam[0] : groupIdParam;
   const isPageActive = usePageActive();
 
-  const [includeDone, setIncludeDone] = useState(false);
-  const [perBoardLimit, setPerBoardLimit] = useState(5);
+  const [includeDone] = useState(true);
+  const [perBoardLimit] = useState(5);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<BoardGroupMemoryRead[]>([]);
@@ -186,21 +298,35 @@ export default function BoardGroupDetailPage() {
   const [isNoteSending, setIsNoteSending] = useState(false);
   const [noteSendError, setNoteSendError] = useState<string | null>(null);
 
-  const [heartbeatAmount, setHeartbeatAmount] = useState("10");
-  const [heartbeatUnit, setHeartbeatUnit] = useState<HeartbeatUnit>("m");
-  const [includeBoardLeads, setIncludeBoardLeads] = useState(false);
-  const [isHeartbeatApplying, setIsHeartbeatApplying] = useState(false);
-  const [heartbeatApplyError, setHeartbeatApplyError] = useState<string | null>(
-    null,
-  );
-  const [heartbeatApplyResult, setHeartbeatApplyResult] =
+  // Worker agents heartbeat
+  const [workerAmount, setWorkerAmount] = useState("10");
+  const [workerUnit, setWorkerUnit] = useState<HeartbeatUnit>("m");
+  const [workerSeeded, setWorkerSeeded] = useState(false);
+  const [isWorkerApplying, setIsWorkerApplying] = useState(false);
+  const [workerApplyError, setWorkerApplyError] = useState<string | null>(null);
+  const [workerApplyResult, setWorkerApplyResult] =
     useState<BoardGroupHeartbeatApplyResult | null>(null);
 
-  const heartbeatEvery = useMemo(() => {
-    const parsed = Number.parseInt(heartbeatAmount, 10);
+  // Lead agents heartbeat
+  const [leadAmount, setLeadAmount] = useState("30");
+  const [leadUnit, setLeadUnit] = useState<HeartbeatUnit>("m");
+  const [leadSeeded, setLeadSeeded] = useState(false);
+  const [isLeadApplying, setIsLeadApplying] = useState(false);
+  const [leadApplyError, setLeadApplyError] = useState<string | null>(null);
+  const [leadApplyResult, setLeadApplyResult] =
+    useState<BoardGroupHeartbeatApplyResult | null>(null);
+
+  const workerHeartbeatEvery = useMemo(() => {
+    const parsed = Number.parseInt(workerAmount, 10);
     if (!Number.isFinite(parsed) || parsed <= 0) return "";
-    return `${parsed}${heartbeatUnit}`;
-  }, [heartbeatAmount, heartbeatUnit]);
+    return `${parsed}${workerUnit}`;
+  }, [workerAmount, workerUnit]);
+
+  const leadHeartbeatEvery = useMemo(() => {
+    const parsed = Number.parseInt(leadAmount, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return "";
+    return `${parsed}${leadUnit}`;
+  }, [leadAmount, leadUnit]);
 
   const snapshotQuery =
     useGetBoardGroupSnapshotApiV1BoardGroupsGroupIdSnapshotGet<
@@ -218,6 +344,45 @@ export default function BoardGroupDetailPage() {
         },
       },
     );
+
+  const heartbeatConfigQuery =
+    useGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet<
+      getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse,
+      ApiError
+    >(
+      groupId ?? "",
+      {
+        query: {
+          enabled: Boolean(isSignedIn && groupId),
+          refetchOnMount: "always",
+          retry: false,
+        },
+      },
+    );
+
+  const heartbeatConfig: BoardGroupHeartbeatConfig | null =
+    heartbeatConfigQuery.data?.status === 200 ? heartbeatConfigQuery.data.data : null;
+
+  // Seed pace pickers from real agent config once loaded
+  useEffect(() => {
+    if (!heartbeatConfig || workerSeeded) return;
+    const parsed = parseEvery(heartbeatConfig.worker_every);
+    if (parsed) {
+      setWorkerAmount(parsed.amount);
+      setWorkerUnit(parsed.unit);
+    }
+    setWorkerSeeded(true);
+  }, [heartbeatConfig, workerSeeded]);
+
+  useEffect(() => {
+    if (!heartbeatConfig || leadSeeded) return;
+    const parsed = parseEvery(heartbeatConfig.lead_every);
+    if (parsed) {
+      setLeadAmount(parsed.amount);
+      setLeadUnit(parsed.unit);
+    }
+    setLeadSeeded(true);
+  }, [heartbeatConfig, leadSeeded]);
 
   const snapshot =
     snapshotQuery.data?.status === 200 ? snapshotQuery.data.data : null;
@@ -691,46 +856,47 @@ export default function BoardGroupDetailPage() {
     [canWriteGroup, groupId, isSignedIn, mergeNotesMessages, notesBroadcast],
   );
 
-  const applyHeartbeat = useCallback(async () => {
-    if (!isSignedIn || !groupId) {
-      setHeartbeatApplyError("Sign in to apply.");
-      return;
-    }
-    if (!canManageHeartbeat) {
-      setHeartbeatApplyError("Read-only access. You cannot change agent pace.");
-      return;
-    }
-    const trimmed = heartbeatEvery.trim();
-    if (!trimmed) {
-      setHeartbeatApplyError("Heartbeat cadence is required.");
-      return;
-    }
-    setIsHeartbeatApplying(true);
-    setHeartbeatApplyError(null);
+  const applyWorkerHeartbeat = useCallback(async () => {
+    if (!isSignedIn || !groupId) { setWorkerApplyError("Sign in to apply."); return; }
+    if (!canManageHeartbeat) { setWorkerApplyError("Read-only access."); return; }
+    const trimmed = workerHeartbeatEvery.trim();
+    if (!trimmed) { setWorkerApplyError("Cadence is required."); return; }
+    setIsWorkerApplying(true);
+    setWorkerApplyError(null);
     try {
-      const result =
-        await applyBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatPost(
-          groupId,
-          { every: trimmed, include_board_leads: includeBoardLeads },
-        );
-      if (result.status !== 200) {
-        throw new Error("Unable to apply heartbeat.");
-      }
-      setHeartbeatApplyResult(result.data);
-    } catch (err) {
-      setHeartbeatApplyError(
-        err instanceof Error ? err.message : "Unable to apply heartbeat.",
+      const result = await applyBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatPost(
+        groupId,
+        { every: trimmed, include_board_leads: false },
       );
+      if (result.status !== 200) throw new Error("Unable to apply.");
+      setWorkerApplyResult(result.data);
+    } catch (err) {
+      setWorkerApplyError(err instanceof Error ? err.message : "Unable to apply.");
     } finally {
-      setIsHeartbeatApplying(false);
+      setIsWorkerApplying(false);
     }
-  }, [
-    canManageHeartbeat,
-    groupId,
-    heartbeatEvery,
-    includeBoardLeads,
-    isSignedIn,
-  ]);
+  }, [canManageHeartbeat, groupId, isSignedIn, workerHeartbeatEvery]);
+
+  const applyLeadHeartbeat = useCallback(async () => {
+    if (!isSignedIn || !groupId) { setLeadApplyError("Sign in to apply."); return; }
+    if (!canManageHeartbeat) { setLeadApplyError("Read-only access."); return; }
+    const trimmed = leadHeartbeatEvery.trim();
+    if (!trimmed) { setLeadApplyError("Cadence is required."); return; }
+    setIsLeadApplying(true);
+    setLeadApplyError(null);
+    try {
+      const result = await applyBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatPost(
+        groupId,
+        { every: trimmed, include_board_leads: true },
+      );
+      if (result.status !== 200) throw new Error("Unable to apply.");
+      setLeadApplyResult(result.data);
+    } catch (err) {
+      setLeadApplyError(err instanceof Error ? err.message : "Unable to apply.");
+    } finally {
+      setIsLeadApplying(false);
+    }
+  }, [canManageHeartbeat, groupId, isSignedIn, leadHeartbeatEvery]);
 
   return (
     <DashboardShell>
@@ -816,158 +982,63 @@ export default function BoardGroupDetailPage() {
                 </div>
               </div>
 
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <label className="inline-flex items-center gap-2 text-sm text-muted">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-[color:var(--border-strong)] text-info"
-                    checked={includeDone}
-                    onChange={(event) => setIncludeDone(event.target.checked)}
-                  />
-                  Include done
-                </label>
-                <div className="flex items-center gap-2 text-sm text-muted">
-                  <span className="text-quiet">Top tasks per board</span>
-                  <div className="flex items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1">
-                    {[0, 3, 5, 10].map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        className={cn(
-                          "rounded-md px-2.5 py-1 text-xs font-semibold transition-colors",
-                          perBoardLimit === value
-                            ? "bg-[color:var(--text)] text-[color:var(--surface)]"
-                            : "text-muted hover:bg-[color:var(--surface-strong)] hover:text-strong",
-                        )}
-                        onClick={() => setPerBoardLimit(value)}
-                      >
-                        {value === 0 ? "0" : value}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-                  <span className="text-quiet">Agent pace</span>
-                  <div className="flex flex-wrap items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1">
-                    {HEARTBEAT_PRESETS.map((preset) => {
-                      const value = `${preset.amount}${preset.unit}`;
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          className={cn(
-                            "rounded-md px-2.5 py-1 text-xs font-semibold transition-colors",
-                            heartbeatEvery === value
-                              ? "bg-[color:var(--text)] text-[color:var(--surface)]"
-                              : "text-muted hover:bg-[color:var(--surface-strong)] hover:text-strong",
-                            !canManageHeartbeat &&
-                              "opacity-50 cursor-not-allowed",
-                          )}
-                          disabled={!canManageHeartbeat}
-                          onClick={() => {
-                            setHeartbeatAmount(String(preset.amount));
-                            setHeartbeatUnit(preset.unit);
-                          }}
-                        >
-                          {preset.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <input
-                    value={heartbeatAmount}
-                    onChange={(event) => setHeartbeatAmount(event.target.value)}
-                    className={cn(
-                      "h-8 w-20 rounded-md border bg-[color:var(--surface)] px-2 text-xs text-strong shadow-sm",
-                      heartbeatEvery
-                        ? "border-[color:var(--border)]"
-                        : "border-[color:var(--danger-border)] focus:border-[color:var(--danger-border)] focus:ring-2 focus:ring-rose-100",
-                      !canManageHeartbeat && "opacity-60 cursor-not-allowed",
-                    )}
-                    placeholder="10"
-                    inputMode="numeric"
-                    type="number"
-                    min={1}
-                    step={1}
-                    disabled={!canManageHeartbeat}
-                  />
-                  <select
-                    value={heartbeatUnit}
-                    onChange={(event) =>
-                      setHeartbeatUnit(event.target.value as HeartbeatUnit)
-                    }
-                    className={cn(
-                      "h-8 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs text-strong shadow-sm",
-                      !canManageHeartbeat && "opacity-60 cursor-not-allowed",
-                    )}
-                    disabled={!canManageHeartbeat}
-                  >
-                    <option value="s">sec</option>
-                    <option value="m">min</option>
-                    <option value="h">hr</option>
-                    <option value="d">day</option>
-                  </select>
-                  <label className="inline-flex items-center gap-2 text-xs text-muted">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-[color:var(--border-strong)] text-info"
-                      checked={includeBoardLeads}
-                      onChange={(event) =>
-                        setIncludeBoardLeads(event.target.checked)
-                      }
+              {canManageHeartbeat && (
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {/* Worker agents pace card */}
+                  <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                    <div className="mb-3">
+                      <p className="text-sm font-semibold text-strong">⚙️ Worker check-in rate</p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        How often worker agents wake up, pick up tasks, and report back. Set faster for active sprints, slower to reduce noise.
+                      </p>
+                    </div>
+                    <PaceSelector
+                      amount={workerAmount}
+                      unit={workerUnit}
+                      every={workerHeartbeatEvery}
                       disabled={!canManageHeartbeat}
+                      isApplying={isWorkerApplying}
+                      error={workerApplyError}
+                      result={workerApplyResult}
+                      onAmountChange={setWorkerAmount}
+                      onUnitChange={setWorkerUnit}
+                      onApply={() => void applyWorkerHeartbeat()}
                     />
-                    Include leads
-                  </label>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void applyHeartbeat()}
-                    disabled={
-                      isHeartbeatApplying ||
-                      !heartbeatEvery ||
-                      !canManageHeartbeat
-                    }
-                    title={
-                      canManageHeartbeat
-                        ? "Apply heartbeat"
-                        : "Read-only access"
-                    }
-                  >
-                    {isHeartbeatApplying ? "Applying…" : "Apply"}
-                  </Button>
+                  </div>
+
+                  {/* Lead agents pace card */}
+                  <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                    <div className="mb-3">
+                      <p className="text-sm font-semibold text-strong">👑 Lead check-in rate</p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        How often board leads review progress, unblock workers, and coordinate across boards. Usually slower than workers.
+                      </p>
+                    </div>
+                    <PaceSelector
+                      amount={leadAmount}
+                      unit={leadUnit}
+                      every={leadHeartbeatEvery}
+                      disabled={!canManageHeartbeat}
+                      isApplying={isLeadApplying}
+                      error={leadApplyError}
+                      result={leadApplyResult}
+                      onAmountChange={setLeadAmount}
+                      onUnitChange={setLeadUnit}
+                      onApply={() => void applyLeadHeartbeat()}
+                    />
+                  </div>
                 </div>
-                {!canManageHeartbeat ? (
-                  <p className="text-xs text-quiet">
-                    Read-only access. You cannot change agent pace for this
-                    group.
-                  </p>
-                ) : null}
-              </div>
+              )}
+              {!canManageHeartbeat && (
+                <p className="mt-4 text-xs text-quiet">
+                  Read-only access — only admins can change agent check-in rates.
+                </p>
+              )}
             </div>
           </div>
 
           <div className="p-8">
             <div className="space-y-6">
-              {heartbeatApplyError ? (
-                <div className="rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-4 text-sm text-danger shadow-sm">
-                  {heartbeatApplyError}
-                </div>
-              ) : null}
-              {heartbeatApplyResult ? (
-                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-sm text-muted shadow-sm">
-                  <p className="font-semibold text-strong">
-                    Heartbeat applied
-                  </p>
-                  <p className="mt-1 text-muted">
-                    Updated {heartbeatApplyResult.updated_agent_ids.length}{" "}
-                    agents, failed{" "}
-                    {heartbeatApplyResult.failed_agent_ids.length}.
-                  </p>
-                </div>
-              ) : null}
-
               {snapshotQuery.isLoading ? (
                 <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 text-sm text-muted shadow-sm">
                   Loading group snapshot…
@@ -1006,23 +1077,45 @@ export default function BoardGroupDetailPage() {
                             </p>
                           </div>
                           <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
-                            <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-2 py-0.5 text-muted">
-                              Inbox {safeCount(item, "inbox")}
-                            </span>
-                            <span className="rounded-full border border-emerald-200 bg-[color:var(--success-soft)] px-2 py-0.5 text-success">
-                              In progress {safeCount(item, "in_progress")}
-                            </span>
-                            <span className="rounded-full border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-2 py-0.5 text-warning">
-                              Review {safeCount(item, "review")}
-                            </span>
+                            {(
+                              [
+                                { key: "inbox", label: "Inbox", cls: "border-[color:var(--border)] bg-[color:var(--surface-muted)] text-muted" },
+                                { key: "in_progress", label: "In progress", cls: "border-emerald-200 bg-[color:var(--success-soft)] text-success" },
+                                { key: "review", label: "Review", cls: "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-warning" },
+                                { key: "done", label: "Done", cls: "border-[color:var(--border)] bg-[color:var(--surface-muted)] text-quiet" },
+                              ] as const
+                            ).map(({ key, label, cls }) => (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() =>
+                                  setStatusFilter((prev) =>
+                                    prev === key ? null : key,
+                                  )
+                                }
+                                className={cn(
+                                  "rounded-full border px-2 py-0.5 transition-all",
+                                  cls,
+                                  statusFilter === key
+                                    ? "ring-2 ring-offset-1 ring-[color:var(--accent)] opacity-100"
+                                    : "opacity-80 hover:opacity-100",
+                                )}
+                              >
+                                {label} {safeCount(item, key)}
+                              </button>
+                            ))}
                           </div>
                         </div>
                       </div>
 
                       <div className="px-6 py-4">
-                        {item.tasks && item.tasks.length > 0 ? (
+                        {(() => {
+                          const filtered = (item.tasks ?? []).filter(
+                            (task) => !statusFilter || task.status === statusFilter,
+                          );
+                          return filtered.length > 0 ? (
                           <ul className="space-y-3">
-                            {item.tasks.map((task) => (
+                            {filtered.map((task) => (
                               <li key={task.id}>
                                 <Link
                                   href={{
@@ -1075,9 +1168,12 @@ export default function BoardGroupDetailPage() {
                           </ul>
                         ) : (
                           <p className="text-sm text-quiet">
-                            No tasks in this snapshot.
+                            {statusFilter
+                              ? `No ${statusFilter.replace("_", " ")} tasks.`
+                              : "No tasks in this snapshot."}
                           </p>
-                        )}
+                        );
+                        })()}
                       </div>
                     </div>
                   ))}

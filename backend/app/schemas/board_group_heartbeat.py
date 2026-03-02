@@ -19,6 +19,13 @@ class BoardGroupHeartbeatApply(SQLModel):
     include_board_leads: bool = False
 
 
+class BoardGroupHeartbeatConfig(SQLModel):
+    """Current heartbeat cadence for worker and lead agents in a group."""
+
+    worker_every: str | None = None
+    lead_every: str | None = None
+
+
 class BoardGroupHeartbeatApplyResult(SQLModel):
     """Result payload describing agents updated by a heartbeat request."""
 

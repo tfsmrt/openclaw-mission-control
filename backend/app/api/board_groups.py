@@ -23,6 +23,7 @@ from app.models.gateways import Gateway
 from app.schemas.board_group_heartbeat import (
     BoardGroupHeartbeatApply,
     BoardGroupHeartbeatApplyResult,
+    BoardGroupHeartbeatConfig,
 )
 from app.schemas.board_groups import BoardGroupCreate, BoardGroupRead, BoardGroupUpdate
 from app.schemas.common import OkResponse
@@ -273,6 +274,40 @@ async def _sync_gateway_heartbeats(
         except OpenClawGatewayError:
             failed_agent_ids.extend([agent.id for agent in gateway_agents])
     return failed_agent_ids
+
+
+@router.get("/{group_id}/heartbeat", response_model=BoardGroupHeartbeatConfig)
+async def get_board_group_heartbeat(
+    group_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+    ctx: OrganizationContext = ORG_MEMBER_DEP,
+) -> BoardGroupHeartbeatConfig:
+    """Return the current heartbeat cadence for worker and lead agents in a group."""
+    group = await BoardGroup.objects.by_id(group_id).first(session)
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    await _require_group_access(session, group_id=group_id, member=ctx.member, write=False)
+    boards = await Board.objects.filter_by(board_group_id=group_id).all(session)
+    board_ids = [b.id for b in boards]
+    if not board_ids:
+        return BoardGroupHeartbeatConfig()
+    agents = await Agent.objects.by_field_in("board_id", board_ids).all(session)
+    worker_every: str | None = None
+    lead_every: str | None = None
+    for agent in agents:
+        cfg = agent.heartbeat_config or {}
+        every = cfg.get("every") if isinstance(cfg, dict) else None
+        if not every:
+            continue
+        if agent.is_board_lead:
+            if lead_every is None:
+                lead_every = every
+        else:
+            if worker_every is None:
+                worker_every = every
+        if worker_every and lead_every:
+            break
+    return BoardGroupHeartbeatConfig(worker_every=worker_every, lead_every=lead_every)
 
 
 @router.post("/{group_id}/heartbeat", response_model=BoardGroupHeartbeatApplyResult)

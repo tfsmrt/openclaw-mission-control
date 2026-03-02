@@ -160,6 +160,14 @@ export const TaskBoard = memo(function TaskBoard({
   const [bulkMoveTo, setBulkMoveTo] = useState<TaskStatus | null>(null);
   const [isBulkBusy, setIsBulkBusy] = useState(false);
 
+  const selectedTasksHaveApprovals = useMemo(
+    () =>
+      tasks.some(
+        (t) => selectedIds.has(t.id) && (t.approvals_pending_count ?? 0) > 0,
+      ),
+    [tasks, selectedIds],
+  );
+
   const toggleSelect = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedIds((prev) => {
@@ -478,7 +486,7 @@ export const TaskBoard = memo(function TaskBoard({
             Move
           </button>
         </div>
-        {onBulkApprove && (
+        {onBulkApprove && selectedTasksHaveApprovals && (
           <>
             <div className="mx-1 h-5 w-px bg-[color:var(--border)]" />
             <button
@@ -676,7 +684,7 @@ export const TaskBoard = memo(function TaskBoard({
                           )}
                         </button>
                       </div>
-                      <div className={cn(selectedIds.has(task.id) && "ring-2 ring-[color:var(--accent)] rounded-xl")}>
+                      <div className={cn(selectedIds.has(task.id) && "ring-2 ring-[color:var(--accent)] rounded-lg")}>
                         <TaskCard
                           title={task.title}
                           status={task.status}

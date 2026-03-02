@@ -24,6 +24,7 @@ import type {
   BoardGroupCreate,
   BoardGroupHeartbeatApply,
   BoardGroupHeartbeatApplyResult,
+  BoardGroupHeartbeatConfig,
   BoardGroupRead,
   BoardGroupSnapshot,
   BoardGroupUpdate,
@@ -1121,6 +1122,281 @@ export function useGetBoardGroupSnapshotApiV1BoardGroupsGroupIdSnapshotGet<
     getGetBoardGroupSnapshotApiV1BoardGroupsGroupIdSnapshotGetQueryOptions(
       groupId,
       params,
+      options,
+    );
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Return the current heartbeat cadence for worker and lead agents in a group.
+ * @summary Get Board Group Heartbeat
+ */
+export type getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse200 =
+  {
+    data: BoardGroupHeartbeatConfig;
+    status: 200;
+  };
+
+export type getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse422 =
+  {
+    data: HTTPValidationError;
+    status: 422;
+  };
+
+export type getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponseSuccess =
+  getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse200 & {
+    headers: Headers;
+  };
+export type getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponseError =
+  getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse422 & {
+    headers: Headers;
+  };
+
+export type getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse =
+  | getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponseSuccess
+  | getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponseError;
+
+export const getGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetUrl = (
+  groupId: string,
+) => {
+  return `/api/v1/board-groups/${groupId}/heartbeat`;
+};
+
+export const getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet = async (
+  groupId: string,
+  options?: RequestInit,
+): Promise<getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse> => {
+  return customFetch<getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse>(
+    getGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetUrl(groupId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetQueryKey =
+  (groupId: string) => {
+    return [`/api/v1/board-groups/${groupId}/heartbeat`] as const;
+  };
+
+export const getGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetQueryOptions =
+  <
+    TData = Awaited<
+      ReturnType<
+        typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+      >
+    >,
+    TError = HTTPValidationError,
+  >(
+    groupId: string,
+    options?: {
+      query?: Partial<
+        UseQueryOptions<
+          Awaited<
+            ReturnType<
+              typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+            >
+          >,
+          TError,
+          TData
+        >
+      >;
+      request?: SecondParameter<typeof customFetch>;
+    },
+  ) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+      queryOptions?.queryKey ??
+      getGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetQueryKey(
+        groupId,
+      );
+
+    const queryFn: QueryFunction<
+      Awaited<
+        ReturnType<
+          typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+        >
+      >
+    > = ({ signal }) =>
+      getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet(groupId, {
+        signal,
+        ...requestOptions,
+      });
+
+    return {
+      queryKey,
+      queryFn,
+      enabled: !!groupId,
+      ...queryOptions,
+    } as UseQueryOptions<
+      Awaited<
+        ReturnType<
+          typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+        >
+      >,
+      TError,
+      TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+  };
+
+export type GetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetQueryResult =
+  NonNullable<
+    Awaited<
+      ReturnType<
+        typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+      >
+    >
+  >;
+export type GetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetQueryError =
+  HTTPValidationError;
+
+export function useGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet<
+  TData = Awaited<
+    ReturnType<typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet>
+  >,
+  TError = HTTPValidationError,
+>(
+  groupId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<
+            typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+          >
+        >,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<
+            ReturnType<
+              typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+            >
+          >,
+          TError,
+          Awaited<
+            ReturnType<
+              typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+            >
+          >
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet<
+  TData = Awaited<
+    ReturnType<typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet>
+  >,
+  TError = HTTPValidationError,
+>(
+  groupId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<
+            typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+          >
+        >,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<
+            ReturnType<
+              typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+            >
+          >,
+          TError,
+          Awaited<
+            ReturnType<
+              typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+            >
+          >
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet<
+  TData = Awaited<
+    ReturnType<typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet>
+  >,
+  TError = HTTPValidationError,
+>(
+  groupId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<
+            typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+          >
+        >,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Get Board Group Heartbeat
+ */
+
+export function useGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet<
+  TData = Awaited<
+    ReturnType<typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet>
+  >,
+  TError = HTTPValidationError,
+>(
+  groupId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<
+          ReturnType<
+            typeof getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet
+          >
+        >,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions =
+    getGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetQueryOptions(
+      groupId,
       options,
     );
 
