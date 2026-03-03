@@ -44,7 +44,7 @@ const PACKS_SORTABLE_COLUMNS = [
 export default function SkillsPacksPage() {
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
-  const { isAdmin, organizationName } = useOrganizationMembership(isSignedIn);
+  const { isAdmin } = useOrganizationMembership(isSignedIn);
   const [deleteTarget, setDeleteTarget] = useState<SkillPackRead | null>(null);
   const [syncingPackIds, setSyncingPackIds] = useState<Set<string>>(new Set());
   const [isSyncingAll, setIsSyncingAll] = useState(false);
@@ -201,17 +201,7 @@ export default function SkillsPacksPage() {
           forceRedirectUrl: "/skills/packs",
         }}
         title="Skill Packs"
-        description={
-          <span className="flex items-center gap-2">
-            <span>{packs.length} pack{packs.length === 1 ? "" : "s"} configured.</span>
-            {organizationName && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-2 py-0.5 text-xs font-medium text-muted">
-                <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--accent)]" />
-                {organizationName}
-              </span>
-            )}
-          </span>
-        }
+        description={`${packs.length} pack${packs.length === 1 ? "" : "s"} configured.`}
         headerActions={
           isAdmin ? (
             <div className="flex items-center gap-2">
