@@ -565,13 +565,17 @@ async def _send_lead_task_message(
     session_key: str,
     config: GatewayClientConfig,
     message: str,
+    agent: "Agent | None" = None,
 ) -> OpenClawGatewayError | None:
+    from datetime import datetime
+    last_seen_at: datetime | None = getattr(agent, "last_seen_at", None) if agent else None
     return await dispatch.try_send_agent_message(
         session_key=session_key,
         config=config,
         agent_name="Lead Agent",
         message=message,
         deliver=False,
+        last_seen_at=last_seen_at,
     )
 
 
@@ -582,13 +586,17 @@ async def _send_agent_task_message(
     config: GatewayClientConfig,
     agent_name: str,
     message: str,
+    agent: "Agent | None" = None,
 ) -> OpenClawGatewayError | None:
+    from datetime import datetime
+    last_seen_at: datetime | None = getattr(agent, "last_seen_at", None) if agent else None
     return await dispatch.try_send_agent_message(
         session_key=session_key,
         config=config,
         agent_name=agent_name,
         message=message,
         deliver=False,
+        last_seen_at=last_seen_at,
     )
 
 
@@ -676,6 +684,7 @@ async def _notify_agent_on_task_assign(
         config=config,
         agent_name=agent.name,
         message=message,
+        agent=agent,
     )
     if error is None:
         record_activity(
@@ -727,6 +736,7 @@ async def _notify_agent_on_task_rework(
         config=config,
         agent_name=agent.name,
         message=message,
+        agent=agent,
     )
     if error is None:
         record_activity(
@@ -790,6 +800,7 @@ async def _notify_agent_on_task_rework(
         config=config,
         agent_name=agent.name,
         message=message,
+        agent=agent,
     )
     if error is None:
         record_activity(
@@ -847,6 +858,7 @@ async def _notify_lead_on_task_create(
         session_key=lead.openclaw_session_id,
         config=config,
         message=message,
+        agent=lead,
     )
     if error is None:
         record_activity(
@@ -904,6 +916,7 @@ async def _notify_lead_on_task_unassigned(
         session_key=lead.openclaw_session_id,
         config=config,
         message=message,
+        agent=lead,
     )
     if error is None:
         record_activity(
@@ -1890,6 +1903,7 @@ async def _notify_task_comment_targets(
             config=config,
             agent_name=agent.name,
             message=notification,
+            agent=agent,
         )
 
 
