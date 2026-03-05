@@ -436,16 +436,25 @@ class MissionControlFastAPI(FastAPI):
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Initialize application resources before serving requests."""
+    import asyncio
+    from app.services.openclaw.agent_watchdog import watchdog_loop
+
     logger.info(
         "app.lifecycle.starting environment=%s db_auto_migrate=%s",
         settings.environment,
         settings.db_auto_migrate,
     )
     await init_db()
-    logger.info("app.lifecycle.started")
+    watchdog_task = asyncio.create_task(watchdog_loop(), name="agent-watchdog")
+    logger.info("app.lifecycle.started watchdog=running")
     try:
         yield
     finally:
+        watchdog_task.cancel()
+        try:
+            await watchdog_task
+        except asyncio.CancelledError:
+            pass
         logger.info("app.lifecycle.stopped")
 
 
