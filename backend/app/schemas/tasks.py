@@ -77,6 +77,7 @@ class TaskRead(TaskBase):
 
     id: UUID
     board_id: UUID | None
+    board_group_id: UUID | None = None
     created_by_user_id: UUID | None
     creator_name: str | None = None  # denormalized for display
     in_progress_at: datetime | None

@@ -20,6 +20,7 @@ from app.core.agent_auth import AgentAuthContext, get_agent_auth_context
 from app.db.pagination import paginate
 from app.db.session import get_session
 from app.models.agents import Agent
+from app.models.board_groups import BoardGroup
 from app.models.boards import Board
 from app.models.tags import Tag
 from app.models.task_dependencies import TaskDependency
@@ -1931,6 +1932,121 @@ async def broadcast_gateway_lead_message(
         actor_agent=agent_ctx.agent,
         payload=payload,
     )
+
+
+# ---------------------------------------------------------------------------
+# Group-level Tasks — agent-authenticated access
+# ---------------------------------------------------------------------------
+
+
+def _guard_group_access(agent_ctx: AgentAuthContext, group_id: UUID) -> None:
+    """Ensure the agent is allowed to access group-level tasks for this group."""
+    agent = agent_ctx.agent
+    # Board-scoped agents have no group access.
+    if agent.board_id and not agent.group_id:
+        OpenClawAuthorizationPolicy.require_board_write_access(allowed=False)
+    # Group agent: must match this group.
+    if agent.group_id is not None:
+        OpenClawAuthorizationPolicy.require_board_write_access(
+            allowed=agent.group_id == group_id,
+        )
+    # Gateway main agent (no board_id, no group_id): unrestricted.
+
+
+@router.get(
+    "/board-groups/{group_id}/tasks",
+    response_model=DefaultLimitOffsetPage[TaskRead],
+    tags=AGENT_ALL_ROLE_TAGS,
+    summary="List group-level tasks for a board group",
+    description=(
+        "Return tasks that belong directly to a board group (no inner board).\n\n"
+        "Group agents may only access their own group's tasks."
+    ),
+    openapi_extra=_agent_board_openapi_hints(
+        intent="agent_group_task_discovery",
+        when_to_use=[
+            "Group agent needs to review cross-board coordination tasks.",
+            "Main agent wants to inspect group-level backlog.",
+        ],
+        routing_examples=[
+            {
+                "input": {
+                    "intent": "group agent needs its own task list",
+                    "required_privilege": "any_agent",
+                },
+                "decision": "agent_group_task_discovery",
+            },
+        ],
+    ),
+)
+async def list_group_tasks_agent(
+    group_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+    agent_ctx: AgentAuthContext = AGENT_CTX_DEP,
+) -> LimitOffsetPage[TaskRead]:
+    """List group-level tasks for a board group."""
+    _guard_group_access(agent_ctx, group_id)
+    group = await BoardGroup.objects.by_id(group_id).first(session)
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    statement = (
+        select(Task)
+        .where(col(Task.board_group_id) == group_id)
+        .where(col(Task.board_id).is_(None))
+        .order_by(col(Task.created_at).desc())
+    )
+    return await paginate(session, statement)
+
+
+@router.post(
+    "/board-groups/{group_id}/tasks",
+    response_model=TaskRead,
+    tags=AGENT_LEAD_TAGS,
+    summary="Create a group-level task as group lead agent",
+    description=(
+        "Create a task scoped to a board group (no inner board).\n\n"
+        "Only the group lead agent or main agent may call this."
+    ),
+    openapi_extra=_agent_board_openapi_hints(
+        intent="agent_group_task_create",
+        required_actor="board_lead",
+        when_to_use=[
+            "Group lead agent needs to create a cross-board coordination task.",
+        ],
+        routing_examples=[
+            {
+                "input": {
+                    "intent": "group lead creates coordination task",
+                    "required_privilege": "board_lead",
+                },
+                "decision": "agent_group_task_create",
+            },
+        ],
+    ),
+)
+async def create_group_task_agent(
+    group_id: UUID,
+    payload: TaskCreate,
+    session: AsyncSession = SESSION_DEP,
+    agent_ctx: AgentAuthContext = AGENT_CTX_DEP,
+) -> Task:
+    """Create a group-level task as the group lead agent."""
+    _guard_group_access(agent_ctx, group_id)
+    _require_board_lead(agent_ctx)
+    group = await BoardGroup.objects.by_id(group_id).first(session)
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    data = payload.model_dump(exclude={"depends_on_task_ids", "tag_ids", "custom_field_values"})
+    task = Task.model_validate(data)
+    task.board_group_id = group_id
+    task.board_id = None
+    task.organization_id = group.organization_id
+    task.auto_created = True
+    task.auto_reason = f"group_agent:{agent_ctx.agent.id}"
+    session.add(task)
+    await session.commit()
+    await session.refresh(task)
+    return task
 
 
 # ---------------------------------------------------------------------------

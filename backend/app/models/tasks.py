@@ -20,6 +20,7 @@ class Task(TenantScoped, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     board_id: UUID | None = Field(default=None, foreign_key="boards.id", index=True)
+    board_group_id: UUID | None = Field(default=None, foreign_key="board_groups.id", index=True)
 
     title: str
     description: str | None = None

@@ -20,6 +20,7 @@ from app.models.board_group_memory import BoardGroupMemory
 from app.models.board_groups import BoardGroup
 from app.models.boards import Board
 from app.models.gateways import Gateway
+from app.models.tasks import Task
 from app.schemas.board_group_heartbeat import (
     BoardGroupHeartbeatApply,
     BoardGroupHeartbeatApplyResult,
@@ -29,6 +30,7 @@ from app.schemas.agents import AgentRead
 from app.schemas.board_groups import BoardGroupCreate, BoardGroupRead, BoardGroupUpdate
 from app.schemas.common import OkResponse
 from app.schemas.pagination import DefaultLimitOffsetPage
+from app.schemas.tasks import TaskCreate, TaskRead, TaskUpdate
 from app.schemas.view_models import BoardGroupSnapshot
 from app.services.board_group_snapshot import build_group_snapshot
 from app.services.openclaw.constants import DEFAULT_HEARTBEAT_CONFIG
@@ -36,6 +38,7 @@ from app.services.openclaw.db_agent_state import mint_agent_token
 from app.services.openclaw.gateway_rpc import OpenClawGatewayError
 from app.services.openclaw.internal.session_keys import group_lead_session_key
 from app.services.openclaw.provisioning import OpenClawGatewayProvisioner
+from app.services.openclaw.lifecycle_orchestrator import AgentLifecycleOrchestrator
 from app.services.openclaw.provisioning_db import AgentLifecycleService
 from app.services.organizations import (
     OrganizationContext,
@@ -417,14 +420,14 @@ from sqlmodel import SQLModel  # noqa: E402
 class GroupAgentProvision(SQLModel):
     """Payload for provisioning a group lead agent."""
 
-    gateway_id: UUID
+    gateway_id: UUID | None = None  # auto-selects org's first gateway if omitted
     name: str | None = None  # defaults to "{group.name} Lead"
 
 
 @router.post("/{group_id}/agent", response_model=AgentRead)
 async def provision_group_agent(
     group_id: UUID,
-    payload: GroupAgentProvision,
+    payload: GroupAgentProvision = GroupAgentProvision(),
     session: AsyncSession = SESSION_DEP,
     ctx: OrganizationContext = ORG_ADMIN_DEP,
 ) -> AgentRead:
@@ -432,6 +435,7 @@ async def provision_group_agent(
 
     Creates a new Agent record scoped to the group (no board), sets it as the
     group's agent, and mints its auth token. Only org admins may call this.
+    If gateway_id is omitted, the first gateway in the organization is used.
     """
     group = await BoardGroup.objects.by_id(group_id).first(session)
     if group is None:
@@ -445,11 +449,18 @@ async def provision_group_agent(
             detail="A group agent is already provisioned for this board group.",
         )
 
-    gateway = await Gateway.objects.by_id(payload.gateway_id).first(session)
+    if payload.gateway_id:
+        gateway = await Gateway.objects.by_id(payload.gateway_id).first(session)
+    else:
+        gateways = await Gateway.objects.filter_by(
+            organization_id=ctx.organization.id,
+        ).all(session)
+        gateway = gateways[0] if gateways else None
+
     if gateway is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Gateway not found.",
+            detail="No gateway found. Please configure a gateway first.",
         )
 
     agent_name = (payload.name or "").strip() or f"{group.name} Lead"
@@ -464,7 +475,7 @@ async def provision_group_agent(
         status="provisioning",
         openclaw_session_id=session_key,
     )
-    mint_agent_token(agent)
+    raw_token = mint_agent_token(agent)
     session.add(agent)
     await session.flush()
 
@@ -473,6 +484,36 @@ async def provision_group_agent(
     session.add(group)
     await session.commit()
     await session.refresh(agent)
+
+    # Actually provision the agent on the gateway (sets up workspace files, wakes it up).
+    agent = await AgentLifecycleOrchestrator(session).run_lifecycle(
+        gateway=gateway,
+        agent_id=agent.id,
+        board=None,
+        user=None,  # run_lifecycle fetches org owner automatically when board=None
+        action="provision",
+        auth_token=raw_token,
+        force_bootstrap=True,
+        wakeup_verb="provisioned",
+    )
+
+    # Append sister-board context block to TOOLS.md in the agent workspace.
+    # This runs best-effort; provisioning is already done at this point.
+    try:
+        from app.services.group_agent_context import build_group_context_block
+        context_block = await build_group_context_block(session, group_id=group_id)
+        if context_block and gateway.workspace_root:
+            from app.services.openclaw.provisioning import _workspace_path
+            workspace_path = _workspace_path(agent, gateway.workspace_root)
+            tools_path = f"{workspace_path}/TOOLS.md"
+            import os
+            if os.path.exists(tools_path):
+                with open(tools_path, "a") as f:
+                    f.write("\n\n---\n\n## Sister Boards Context\n\n")
+                    f.write("You have full read/write access to all boards in your group.\n\n")
+                    f.write(context_block)
+    except Exception:
+        pass  # non-fatal: agent is already provisioned and running
 
     return AgentLifecycleService.to_agent_read(AgentLifecycleService.with_computed_status(agent))
 
@@ -577,5 +618,111 @@ async def delete_board_group(
         col(BoardGroup.id) == group_id,
         commit=False,
     )
+    await session.commit()
+    return OkResponse()
+
+
+# ---------------------------------------------------------------------------
+# Group-level Tasks
+# ---------------------------------------------------------------------------
+
+
+async def _get_group_task_or_404(
+    session: AsyncSession,
+    *,
+    task_id: UUID,
+    group_id: UUID,
+) -> Task:
+    task = await session.get(Task, task_id)
+    if task is None or task.board_group_id != group_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return task
+
+
+@router.get("/{group_id}/tasks", response_model=DefaultLimitOffsetPage[TaskRead])
+async def list_group_tasks(
+    group_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+    ctx: OrganizationContext = ORG_MEMBER_DEP,
+) -> Any:
+    """List tasks belonging directly to a board group (not scoped to any inner board)."""
+    await _require_group_access(session, group_id=group_id, member=ctx.member, write=False)
+    statement = (
+        select(Task)
+        .where(col(Task.board_group_id) == group_id)
+        .where(col(Task.board_id).is_(None))
+        .order_by(col(Task.created_at).desc())
+    )
+    return await paginate(session, statement)
+
+
+@router.post("/{group_id}/tasks", response_model=TaskRead)
+async def create_group_task(
+    group_id: UUID,
+    payload: TaskCreate,
+    session: AsyncSession = SESSION_DEP,
+    ctx: OrganizationContext = ORG_ADMIN_DEP,
+) -> Task:
+    """Create a task directly owned by a board group."""
+    await _require_group_access(session, group_id=group_id, member=ctx.member, write=True)
+    data = payload.model_dump(exclude={"depends_on_task_ids", "tag_ids", "custom_field_values"})
+    task = Task.model_validate(data)
+    task.board_group_id = group_id
+    task.board_id = None
+    task.organization_id = ctx.organization.id
+    task.created_by_user_id = ctx.member.user_id
+    session.add(task)
+    await session.commit()
+    await session.refresh(task)
+    return task
+
+
+@router.get("/{group_id}/tasks/{task_id}", response_model=TaskRead)
+async def get_group_task(
+    group_id: UUID,
+    task_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+    ctx: OrganizationContext = ORG_MEMBER_DEP,
+) -> Task:
+    """Get a single group-level task."""
+    await _require_group_access(session, group_id=group_id, member=ctx.member, write=False)
+    return await _get_group_task_or_404(session, task_id=task_id, group_id=group_id)
+
+
+@router.patch("/{group_id}/tasks/{task_id}", response_model=TaskRead)
+async def update_group_task(
+    group_id: UUID,
+    task_id: UUID,
+    payload: TaskUpdate,
+    session: AsyncSession = SESSION_DEP,
+    ctx: OrganizationContext = ORG_ADMIN_DEP,
+) -> Task:
+    """Update a group-level task."""
+    await _require_group_access(session, group_id=group_id, member=ctx.member, write=True)
+    task = await _get_group_task_or_404(session, task_id=task_id, group_id=group_id)
+    updates = payload.model_dump(
+        exclude={"depends_on_task_ids", "tag_ids", "custom_field_values"},
+        exclude_unset=True,
+    )
+    updates["updated_at"] = utcnow()
+    for key, value in updates.items():
+        setattr(task, key, value)
+    session.add(task)
+    await session.commit()
+    await session.refresh(task)
+    return task
+
+
+@router.delete("/{group_id}/tasks/{task_id}", response_model=OkResponse)
+async def delete_group_task(
+    group_id: UUID,
+    task_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+    ctx: OrganizationContext = ORG_ADMIN_DEP,
+) -> OkResponse:
+    """Delete a group-level task."""
+    await _require_group_access(session, group_id=group_id, member=ctx.member, write=True)
+    task = await _get_group_task_or_404(session, task_id=task_id, group_id=group_id)
+    await session.delete(task)
     await session.commit()
     return OkResponse()

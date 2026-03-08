@@ -377,6 +377,97 @@ async def _notify_agents_on_board_group_change(
     )
 
 
+async def _refresh_group_agent_context(
+    *,
+    session: AsyncSession,
+    group: BoardGroup,
+    action: Literal["join", "leave"],
+    changed_board: Board,
+) -> None:
+    """Rebuild and push the sister-board context block to the group agent's TOOLS.md.
+
+    Called whenever a board joins or leaves the group so the group agent always
+    has up-to-date context without manual reprovisioning.
+    """
+    if not group.group_agent_id:
+        return
+
+    agent = await Agent.objects.by_id(group.group_agent_id).first(session)
+    if agent is None or not agent.gateway_id or not agent.openclaw_session_id:
+        return
+
+    gateway = await Gateway.objects.by_id(agent.gateway_id).first(session)
+    if gateway is None or not gateway.workspace_root:
+        return
+
+    try:
+        import os
+        from app.services.group_agent_context import build_group_context_block
+        from app.services.openclaw.provisioning import _workspace_path
+
+        context_block = await build_group_context_block(session, group_id=group.id)
+        workspace_path = _workspace_path(agent, gateway.workspace_root)
+        tools_path = os.path.join(workspace_path, "TOOLS.md")
+
+        if not os.path.exists(tools_path):
+            return
+
+        # Read existing TOOLS.md, strip any previous sister-board section, then re-append.
+        with open(tools_path, "r") as f:
+            content = f.read()
+
+        SISTER_MARKER = "\n\n---\n\n## Sister Boards Context\n\n"
+        if SISTER_MARKER in content:
+            content = content[: content.index(SISTER_MARKER)]
+
+        if context_block:
+            content += SISTER_MARKER
+            content += "You have full read/write access to all boards in your group.\n\n"
+            content += context_block
+
+        with open(tools_path, "w") as f:
+            f.write(content)
+
+        # Notify the group agent so it reloads its context.
+        from app.services.openclaw.gateway_resolver import optional_gateway_client_config
+        config = optional_gateway_client_config(gateway)
+        if config is not None:
+            board_names = ", ".join(
+                b.name
+                for b in await Board.objects.filter_by(board_group_id=group.id).all(session)
+            )
+            notify_msg = (
+                f"📋 Board membership update: **{changed_board.name}** has {action}ed your group.\n\n"
+                f"Your TOOLS.md has been updated with the latest sister-board context.\n"
+                f"Current boards in group: {board_names or '(none)'}.\n\n"
+                f"Re-read your TOOLS.md to pick up the changes."
+            )
+            dispatch = GatewayDispatchService(session)
+            await dispatch.try_send_agent_message(
+                session_key=agent.openclaw_session_id,
+                config=config,
+                agent_name=agent.name,
+                message=notify_msg,
+                deliver=True,
+            )
+        record_activity(
+            session,
+            event_type="group.agent.context.refreshed",
+            message=(
+                f"Group agent TOOLS.md refreshed after board '{changed_board.name}' "
+                f"{action}ed group '{group.name}'."
+            ),
+            agent_id=agent.id,
+        )
+        await session.commit()
+    except Exception:
+        logger.exception(
+            "group.agent.context.refresh_failed group_id=%s agent_id=%s",
+            group.id,
+            agent.id,
+        )
+
+
 async def _notify_agents_on_board_group_addition(
     *,
     session: AsyncSession,
@@ -388,6 +479,12 @@ async def _notify_agents_on_board_group_addition(
         board=board,
         group=group,
         action="join",
+    )
+    await _refresh_group_agent_context(
+        session=session,
+        group=group,
+        action="join",
+        changed_board=board,
     )
 
 
@@ -402,6 +499,12 @@ async def _notify_agents_on_board_group_removal(
         board=board,
         group=group,
         action="leave",
+    )
+    await _refresh_group_agent_context(
+        session=session,
+        group=group,
+        action="leave",
+        changed_board=board,
     )
 
 

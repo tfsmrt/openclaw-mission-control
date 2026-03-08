@@ -1024,6 +1024,67 @@ class BoardAgentLifecycleManager(BaseAgentLifecycleManager):
         )
 
 
+class GroupAgentLifecycleManager(BaseAgentLifecycleManager):
+    """Provisioning manager for group-level lead agents (no board_id, has group_id)."""
+
+    def _agent_id(self, agent: Agent) -> str:
+        return _agent_key(agent)
+
+    def _build_context(
+        self,
+        *,
+        agent: Agent,
+        auth_token: str,
+        user: User | None,
+        board: Board | None,
+    ) -> dict[str, str]:
+        _ = board  # group agents have no board
+        if not self._gateway.workspace_root:
+            msg = "gateway_workspace_root is required"
+            raise ValueError(msg)
+        workspace_path = _workspace_path(agent, self._gateway.workspace_root)
+        session_key = agent.openclaw_session_id or ""
+        base_url = settings.base_url or "REPLACE_WITH_BASE_URL"
+        main_session_key = GatewayAgentIdentity.session_key(self._gateway)
+        identity_context = _identity_context(agent)
+        user_context = _user_context(user)
+        return {
+            "agent_name": agent.name,
+            "agent_id": str(agent.id),
+            "board_id": "",
+            "board_name": "",
+            "board_type": "group_lead",
+            "board_objective": "",
+            "board_success_metrics": "{}",
+            "board_target_date": "",
+            "board_goal_confirmed": "false",
+            "board_rule_require_approval_for_done": "false",
+            "board_rule_require_review_before_done": "false",
+            "board_rule_comment_required_for_review": "false",
+            "board_rule_block_status_changes_with_pending_approval": "false",
+            "board_rule_only_lead_can_change_status": "false",
+            "board_rule_max_agents": "0",
+            "is_board_lead": "true",
+            "is_main_agent": "false",
+            "session_key": session_key,
+            "workspace_path": workspace_path,
+            "base_url": base_url,
+            "auth_token": auth_token,
+            "main_session_key": main_session_key,
+            "workspace_root": self._gateway.workspace_root,
+            **user_context,
+            **identity_context,
+        }
+
+    def _template_overrides(self, agent: Agent) -> dict[str, str] | None:
+        overrides = dict(BOARD_SHARED_TEMPLATE_MAP)
+        overrides.update(LEAD_TEMPLATE_MAP)
+        return overrides
+
+    def _file_names(self, agent: Agent) -> set[str]:
+        return set(LEAD_GATEWAY_FILES)
+
+
 class GatewayMainAgentLifecycleManager(BaseAgentLifecycleManager):
     """Provisioning manager for organization gateway-main agents."""
 
@@ -1156,14 +1217,21 @@ class OpenClawGatewayProvisioner:
             raise ValueError(msg)
 
         # Resolve session key and agent type.
-        if board is None:
+        if board is None and getattr(agent, "group_id", None) is not None:
+            # Group lead agent: board-style lifecycle with its own session key.
+            session_key = (agent.openclaw_session_id or "").strip()
+            if not session_key:
+                msg = "group agent session_key is required"
+                raise ValueError(msg)
+            manager_type: type[BaseAgentLifecycleManager] = GroupAgentLifecycleManager
+        elif board is None:
             session_key = (
                 agent.openclaw_session_id or GatewayAgentIdentity.session_key(gateway) or ""
             ).strip()
             if not session_key:
                 msg = "gateway main agent session_key is required"
                 raise ValueError(msg)
-            manager_type: type[BaseAgentLifecycleManager] = GatewayMainAgentLifecycleManager
+            manager_type = GatewayMainAgentLifecycleManager
         else:
             session_key = _session_key(agent)
             manager_type = BoardAgentLifecycleManager
