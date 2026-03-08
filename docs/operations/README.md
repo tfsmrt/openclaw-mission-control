@@ -73,6 +73,26 @@ Rollback typically means deploying a previous image/commit.
 > **Warning**
 > If you applied non-backward-compatible DB migrations, rolling back the app may require restoring the database.
 
+## Rate limiting
+
+The backend applies per-IP rate limits on sensitive endpoints:
+
+| Endpoint | Limit | Window |
+| --- | --- | --- |
+| Agent authentication | 20 requests | 60 seconds |
+| Webhook ingest | 60 requests | 60 seconds |
+
+Rate-limited requests receive HTTP `429 Too Many Requests`.
+
+Set `RATE_LIMIT_BACKEND` to choose the storage backend:
+
+| Backend | Value | Operational notes |
+| --- | --- | --- |
+| In-memory (default) | `memory` | Per-process limits; each worker tracks independently. No external dependencies. |
+| Redis | `redis` | Limits are shared across all workers. Set `RATE_LIMIT_REDIS_URL` or it falls back to `RQ_REDIS_URL`. Connectivity is validated at startup; transient Redis failures fail open (requests allowed, warning logged). |
+
+When using the in-memory backend in multi-process deployments, also apply rate limiting at the reverse proxy layer (nginx `limit_req`, Caddy rate limiting, etc.).
+
 ## Common issues
 
 ### Frontend loads but API calls fail
@@ -84,3 +104,16 @@ Rollback typically means deploying a previous image/commit.
 
 - Backend: `AUTH_MODE` (`local` or `clerk`)
 - Frontend: `NEXT_PUBLIC_AUTH_MODE` should match
+
+### Webhook signature errors (403)
+
+If a webhook has a `secret` configured, inbound payloads must include a valid HMAC-SHA256 signature. If the webhook also sets `signature_header`, that exact header name must be used. Otherwise the backend checks these defaults:
+
+- `X-Hub-Signature-256: sha256=<hex-digest>` (GitHub-style)
+- `X-Webhook-Signature: sha256=<hex-digest>`
+
+Missing or invalid signatures return `403 Forbidden`. If you see unexpected 403s on webhook ingest, verify that the sending service is computing the HMAC correctly using the webhook's secret and sending it in the configured header.
+
+### Webhook payload too large (413)
+
+Webhook ingest enforces a **1 MB** payload size limit by default. Payloads exceeding this return `413 Content Too Large`. If you need to raise the limit, set `WEBHOOK_MAX_PAYLOAD_BYTES`; otherwise consider sending a URL reference instead of inline content.

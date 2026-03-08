@@ -25,6 +25,6 @@ When enabled, Mission Control skips TLS certificate verification for that gatewa
 When configuring a gateway, you can specify:
 
 - **Gateway URL**: The WebSocket endpoint (e.g., `wss://localhost:18789` or `ws://gateway:18789`)
-- **Gateway Token**: Optional authentication token
+- **Gateway Token**: Optional authentication token. Tokens are currently returned in API responses; a future release will redact them from read endpoints. Treat gateway API responses as sensitive and store tokens securely.
 - **Workspace Root**: The root directory for gateway files (e.g., `~/.openclaw`)
 - **Allow self-signed TLS certificates**: Toggle TLS certificate verification off for this gateway's `wss://` connections (default: disabled)

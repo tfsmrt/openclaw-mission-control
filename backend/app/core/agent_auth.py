@@ -23,7 +23,9 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from sqlmodel import col, select
 
 from app.core.agent_tokens import verify_agent_token
+from app.core.client_ip import get_client_ip
 from app.core.logging import get_logger
+from app.core.rate_limit import agent_auth_limiter
 from app.core.time import utcnow
 from app.db.session import get_session
 from app.models.agents import Agent
@@ -112,6 +114,9 @@ async def get_agent_auth_context(
     session: AsyncSession = SESSION_DEP,
 ) -> AgentAuthContext:
     """Require and validate agent auth token from request headers."""
+    client_ip = get_client_ip(request)
+    if not await agent_auth_limiter.is_allowed(client_ip):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
     resolved = _resolve_agent_token(
         agent_token,
         authorization,
@@ -166,14 +171,18 @@ async def get_agent_auth_context_optional(
                 bool(authorization),
             )
         return None
+    # Rate-limit any request that is actually attempting agent auth on the
+    # optional path. Shared user/agent dependencies resolve user auth first.
+    client_ip = get_client_ip(request)
+    if not await agent_auth_limiter.is_allowed(client_ip):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
     agent = await _find_agent_for_token(session, resolved)
     if agent is None:
-        if agent_token:
-            logger.warning(
-                "agent auth optional invalid token path=%s token_prefix=%s",
-                request.url.path,
-                resolved[:6],
-            )
+        logger.warning(
+            "agent auth optional invalid token path=%s token_prefix=%s",
+            request.url.path,
+            resolved[:6],
+        )
         return None
     await _touch_agent_presence(request, session, agent)
     return AgentAuthContext(actor_type="agent", agent=agent)

@@ -23,5 +23,7 @@ class BoardWebhook(QueryModel, table=True):
     agent_id: UUID | None = Field(default=None, foreign_key="agents.id", index=True)
     description: str
     enabled: bool = Field(default=True, index=True)
+    secret: str | None = Field(default=None)
+    signature_header: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)

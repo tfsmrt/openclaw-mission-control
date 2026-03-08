@@ -20,8 +20,8 @@ from app.api.deps import (
     get_board_for_actor_read,
     get_board_for_user_write,
     get_task_or_404,
-    require_admin_auth,
-    require_admin_or_agent,
+    require_user_auth,
+    require_user_or_agent,
 )
 from app.core.notify import create_user_notification, extract_user_mention_names
 from app.core.time import utcnow
@@ -103,12 +103,12 @@ TASK_SNIPPET_MAX_LEN = 500
 TASK_SNIPPET_TRUNCATED_LEN = 497
 TASK_EVENT_ROW_LEN = 2
 BOARD_READ_DEP = Depends(get_board_for_actor_read)
-ACTOR_DEP = Depends(require_admin_or_agent)
+ACTOR_DEP = Depends(require_user_or_agent)
 SINCE_QUERY = Query(default=None)
 STATUS_QUERY = Query(default=None, alias="status")
 BOARD_WRITE_DEP = Depends(get_board_for_user_write)
 SESSION_DEP = Depends(get_session)
-ADMIN_AUTH_DEP = Depends(require_admin_auth)
+USER_AUTH_DEP = Depends(require_user_auth)
 TASK_DEP = Depends(get_task_or_404)
 
 
@@ -514,6 +514,7 @@ async def _reconcile_dependents_for_dependency_toggle(
                         "Task returned to inbox: dependency reopened " f"({dependency_task.title})."
                     ),
                     agent_id=actor_agent_id,
+                    board_id=dependent.board_id,
                 )
             else:
                 record_activity(
@@ -522,6 +523,7 @@ async def _reconcile_dependents_for_dependency_toggle(
                     task_id=dependent.id,
                     message=f"Dependency completion changed: {dependency_task.title}.",
                     agent_id=actor_agent_id,
+                    board_id=dependent.board_id,
                 )
         else:
             record_activity(
@@ -530,6 +532,7 @@ async def _reconcile_dependents_for_dependency_toggle(
                 task_id=dependent.id,
                 message=f"Dependency completion changed: {dependency_task.title}.",
                 agent_id=actor_agent_id,
+                board_id=dependent.board_id,
             )
 
 
@@ -694,6 +697,7 @@ async def _notify_agent_on_task_assign(
             message=f"Agent notified for assignment: {agent.name}.",
             agent_id=agent.id,
             task_id=task.id,
+            board_id=board.id,
         )
         await session.commit()
     else:
@@ -703,6 +707,7 @@ async def _notify_agent_on_task_assign(
             message=f"Assignee notify failed: {error}",
             agent_id=agent.id,
             task_id=task.id,
+            board_id=board.id,
         )
         await session.commit()
 
@@ -746,6 +751,7 @@ async def _notify_agent_on_task_rework(
             message=f"Assignee notified about requested changes: {agent.name}.",
             agent_id=agent.id,
             task_id=task.id,
+            board_id=board.id,
         )
         await session.commit()
     else:
@@ -755,6 +761,7 @@ async def _notify_agent_on_task_rework(
             message=f"Rework notify failed: {error}",
             agent_id=agent.id,
             task_id=task.id,
+            board_id=board.id,
         )
         await session.commit()
 
@@ -868,6 +875,7 @@ async def _notify_lead_on_task_create(
             message=f"Lead agent notified for task: {task.title}.",
             agent_id=lead.id,
             task_id=task.id,
+            board_id=board.id,
         )
         await session.commit()
     else:
@@ -877,6 +885,7 @@ async def _notify_lead_on_task_create(
             message=f"Lead notify failed: {error}",
             agent_id=lead.id,
             task_id=task.id,
+            board_id=board.id,
         )
         await session.commit()
 
@@ -926,6 +935,7 @@ async def _notify_lead_on_task_unassigned(
             message=f"Lead notified task returned to inbox: {task.title}.",
             agent_id=lead.id,
             task_id=task.id,
+            board_id=board.id,
         )
         await session.commit()
     else:
@@ -935,6 +945,7 @@ async def _notify_lead_on_task_unassigned(
             message=f"Lead notify failed: {error}",
             agent_id=lead.id,
             task_id=task.id,
+            board_id=board.id,
         )
         await session.commit()
 
@@ -1384,7 +1395,10 @@ def _task_event_payload(
     resolved_custom_field_values_by_task_id = custom_field_values_by_task_id or {}
     payload: dict[str, object] = {
         "type": event.event_type,
-        "activity": ActivityEventRead.model_validate(event).model_dump(mode="json"),
+        "activity": ActivityEventRead.model_validate(event).model_dump(
+            mode="json",
+            exclude={"board_id", "route_name", "route_params"},
+        ),
     }
     if event.event_type == "task.comment":
         payload["comment"] = _serialize_comment(event)
@@ -1519,7 +1533,7 @@ async def create_task(
     payload: TaskCreate,
     board: Board = BOARD_WRITE_DEP,
     session: AsyncSession = SESSION_DEP,
-    auth: AuthContext = ADMIN_AUTH_DEP,
+    auth: AuthContext = USER_AUTH_DEP,
 ) -> TaskRead:
     """Create a task and initialize dependency rows."""
     data = payload.model_dump(exclude={"depends_on_task_ids", "tag_ids", "custom_field_values"})
@@ -1584,6 +1598,7 @@ async def create_task(
         event_type="task.created",
         task_id=task.id,
         message=f"Task created: {task.title}.",
+        board_id=board.id,
     )
     await session.commit()
     await _notify_lead_on_task_create(session=session, board=board, task=task)
@@ -1741,7 +1756,7 @@ async def delete_task_and_related_records(
 async def delete_task(
     session: AsyncSession = SESSION_DEP,
     task: Task = TASK_DEP,
-    auth: AuthContext = ADMIN_AUTH_DEP,
+    auth: AuthContext = USER_AUTH_DEP,
 ) -> OkResponse:
     """Delete a task and related records."""
     if task.board_id is None:
@@ -2353,6 +2368,7 @@ async def _apply_lead_task_update(
         task_id=update.task.id,
         message=message,
         agent_id=update.actor.agent.id,
+        board_id=update.board_id,
     )
     await _reconcile_dependents_for_dependency_toggle(
         session,
@@ -2538,6 +2554,7 @@ async def _record_task_comment_from_update(
         event_type="task.comment",
         message=update.comment,
         task_id=update.task.id,
+        board_id=update.task.board_id,
         agent_id=(
             update.actor.agent.id
             if update.actor.actor_type == "agent" and update.actor.agent
@@ -2575,6 +2592,7 @@ async def _record_task_update_activity(
         task_id=update.task.id,
         message=message,
         agent_id=actor_agent_id,
+        board_id=update.board_id,
     )
     await _reconcile_dependents_for_dependency_toggle(
         session,
@@ -2876,6 +2894,7 @@ async def create_task_comment(
         event_type="task.comment",
         message=payload.message,
         task_id=task.id,
+        board_id=task.board_id,
         agent_id=_comment_actor_id(actor),
         created_by_user_id=(
             actor.user.id

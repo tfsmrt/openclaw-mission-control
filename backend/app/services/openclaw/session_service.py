@@ -378,9 +378,11 @@ class GatewaySessionService(OpenClawDBService):
         session_id: str,
         payload: GatewaySessionMessageRequest,
         board_id: str | None,
+        organization_id: UUID,
         user: User | None,
     ) -> None:
         board, config, main_session = await self.require_gateway(board_id, user=user)
+        self._require_same_org(board, organization_id)
         if user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
         await require_board_access(self.session, user=user, board=board, write=True)

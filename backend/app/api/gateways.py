@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
     from app.services.organizations import OrganizationContext
 
+
 router = APIRouter(prefix="/gateways", tags=["gateways"])
 SESSION_DEP = Depends(get_session)
 AUTH_DEP = Depends(get_auth_context)
@@ -82,6 +83,7 @@ async def list_gateways(
         .order_by(col(Gateway.created_at).desc())
         .statement
     )
+
     return await paginate(session, statement)
 
 

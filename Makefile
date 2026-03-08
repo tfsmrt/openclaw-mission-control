@@ -120,14 +120,17 @@ backend-migration-check: ## Validate migration graph + reversible path on clean 
 	cd $(BACKEND_DIR) && \
 		AUTH_MODE=local \
 		LOCAL_AUTH_TOKEN=ci-local-token-ci-local-token-ci-local-token-ci-local-token \
+		BASE_URL=http://localhost:8000 \
 		DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:55432/migration_ci \
 		uv run alembic upgrade head && \
 		AUTH_MODE=local \
 		LOCAL_AUTH_TOKEN=ci-local-token-ci-local-token-ci-local-token-ci-local-token \
+		BASE_URL=http://localhost:8000 \
 		DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:55432/migration_ci \
 		uv run alembic downgrade base && \
 		AUTH_MODE=local \
 		LOCAL_AUTH_TOKEN=ci-local-token-ci-local-token-ci-local-token-ci-local-token \
+		BASE_URL=http://localhost:8000 \
 		DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:55432/migration_ci \
 		uv run alembic upgrade head
 
@@ -141,6 +144,22 @@ frontend-build: frontend-tooling ## Build frontend (next build)
 .PHONY: api-gen
 api-gen: frontend-tooling ## Regenerate TS API client (requires backend running at 127.0.0.1:8000)
 	$(NODE_WRAP) --cwd $(FRONTEND_DIR) npm run api:gen
+
+.PHONY: docker-up
+docker-up: ## Start full Docker stack with image rebuild
+	docker compose -f compose.yml --env-file .env up -d --build
+
+.PHONY: docker-watch
+docker-watch: ## Start stack in watch mode (auto rebuild frontend on UI changes)
+	docker compose -f compose.yml --env-file .env up --build --watch
+
+.PHONY: docker-watch-only
+docker-watch-only: ## Attach file watch to an already-running stack
+	docker compose -f compose.yml --env-file .env watch
+
+.PHONY: docker-down
+docker-down: ## Stop full Docker stack
+	docker compose -f compose.yml --env-file .env down
 
 .PHONY: rq-worker
 rq-worker: ## Run background queue worker loop

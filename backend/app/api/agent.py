@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from enum import Enum
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
@@ -20,8 +21,9 @@ from app.core.agent_auth import AgentAuthContext, get_agent_auth_context
 from app.db.pagination import paginate
 from app.db.session import get_session
 from app.models.agents import Agent
-from app.models.board_groups import BoardGroup
+from app.models.board_webhook_payloads import BoardWebhookPayload
 from app.models.boards import Board
+from app.models.gateways import Gateway
 from app.models.tags import Tag
 from app.models.task_dependencies import TaskDependency
 from app.models.tasks import Task
@@ -34,6 +36,7 @@ from app.schemas.agents import (
 from app.schemas.approvals import ApprovalCreate, ApprovalRead, ApprovalStatus
 from app.schemas.board_memory import BoardMemoryCreate, BoardMemoryRead
 from app.schemas.board_onboarding import BoardOnboardingAgentUpdate, BoardOnboardingRead
+from app.schemas.board_webhooks import BoardWebhookPayloadRead
 from app.schemas.boards import BoardRead
 from app.schemas.common import OkResponse
 from app.schemas.errors import LLMErrorResponse
@@ -168,21 +171,56 @@ def _agent_board_openapi_hints(
     }
 
 
+def _truncate_preview(raw: str, max_chars: int) -> str:
+    if len(raw) <= max_chars:
+        return raw
+    if max_chars <= 3:
+        return raw[:max_chars]
+    return f"{raw[: max_chars - 3]}..."
+
+
+def _payload_preview_with_limit(
+    value: dict[str, object] | list[object] | str | int | float | bool | None,
+    *,
+    max_chars: int,
+) -> tuple[str, bool]:
+    if isinstance(value, str):
+        return _truncate_preview(value, max_chars), len(value) > max_chars
+
+    try:
+        # Stream JSON chunks so we can stop once we know truncation is required.
+        encoder = json.JSONEncoder(ensure_ascii=True)
+        parts: list[str] = []
+        current_len = 0
+        truncated = False
+        for chunk in encoder.iterencode(value):
+            remaining = (max_chars + 1) - current_len
+            if remaining <= 0:
+                truncated = True
+                break
+            if len(chunk) <= remaining:
+                parts.append(chunk)
+                current_len += len(chunk)
+                continue
+            parts.append(chunk[:remaining])
+            current_len += remaining
+            truncated = True
+            break
+        raw = "".join(parts)
+    except TypeError:
+        raw = str(value)
+        return _truncate_preview(raw, max_chars), len(raw) > max_chars
+
+    if len(raw) > max_chars:
+        truncated = True
+    if not truncated:
+        return raw, False
+    return _truncate_preview(raw, max_chars), True
+
+
 def _guard_board_access(agent_ctx: AgentAuthContext, board: Board) -> None:
-    agent = agent_ctx.agent
-    # Board-scoped agent: must match the specific board.
-    if agent.board_id:
-        OpenClawAuthorizationPolicy.require_board_write_access(
-            allowed=agent.board_id == board.id,
-        )
-        return
-    # Group agent: may only access boards that belong to the same group.
-    if agent.group_id is not None:
-        OpenClawAuthorizationPolicy.require_board_write_access(
-            allowed=board.board_group_id == agent.group_id,
-        )
-        return
-    # Gateway main agent (no board_id, no group_id): unrestricted access.
+    allowed = not (agent_ctx.agent.board_id and agent_ctx.agent.board_id != board.id)
+    OpenClawAuthorizationPolicy.require_board_write_access(allowed=allowed)
 
 
 def _require_board_lead(agent_ctx: AgentAuthContext) -> Agent:
@@ -192,24 +230,11 @@ def _require_board_lead(agent_ctx: AgentAuthContext) -> Agent:
     )
 
 
-def _guard_task_access(
-    agent_ctx: AgentAuthContext,
-    task: Task,
-    board: Board | None = None,
-) -> None:
-    agent = agent_ctx.agent
-    # Board-scoped agent: must match the task's board.
-    if agent.board_id:
-        allowed = not (task.board_id and agent.board_id != task.board_id)
-        OpenClawAuthorizationPolicy.require_board_write_access(allowed=allowed)
-        return
-    # Group agent: verify the task's board belongs to the agent's group.
-    if agent.group_id is not None and board is not None:
-        OpenClawAuthorizationPolicy.require_board_write_access(
-            allowed=board.board_group_id == agent.group_id,
-        )
-        return
-    # Gateway main agent (no board_id, no group_id): unrestricted access.
+def _guard_task_access(agent_ctx: AgentAuthContext, task: Task) -> None:
+    allowed = not (
+        agent_ctx.agent.board_id and task.board_id and agent_ctx.agent.board_id != task.board_id
+    )
+    OpenClawAuthorizationPolicy.require_board_write_access(allowed=allowed)
 
 
 @router.get(
@@ -344,6 +369,18 @@ async def list_boards(
     statement = select(Board)
     if agent_ctx.agent.board_id:
         statement = statement.where(col(Board.id) == agent_ctx.agent.board_id)
+    else:
+        # Main agents (board_id=None) must be scoped to their organization
+        # via their gateway to prevent cross-tenant board leakage.
+        gateway = await Gateway.objects.by_id(agent_ctx.agent.gateway_id).first(session)
+        if gateway is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Agent gateway not found; cannot determine organization scope.",
+            )
+        statement = statement.where(
+            col(Board.organization_id) == gateway.organization_id,
+        )
     statement = statement.order_by(col(Board.created_at).desc())
     return await paginate(session, statement)
 
@@ -598,6 +635,73 @@ async def list_tags(
     ]
 
 
+@router.get(
+    "/boards/{board_id}/webhooks/{webhook_id}/payloads/{payload_id}",
+    response_model=BoardWebhookPayloadRead,
+    tags=AGENT_BOARD_TAGS,
+    openapi_extra=_agent_board_openapi_hints(
+        intent="agent_board_webhook_payload_read",
+        when_to_use=[
+            "Agent needs to inspect a previously captured webhook payload for this board.",
+            "Agent is reconciling missed webhook events or deduping inbound processing.",
+        ],
+        routing_examples=[
+            {
+                "input": {
+                    "intent": "inspect stored webhook payload by id",
+                    "required_privilege": "any_agent",
+                },
+                "decision": "agent_board_webhook_payload_read",
+            },
+            {
+                "input": {
+                    "intent": "list tasks for planning",
+                    "required_privilege": "any_agent",
+                },
+                "decision": "agent_board_task_discovery",
+            },
+        ],
+    ),
+)
+async def get_webhook_payload(
+    webhook_id: UUID,
+    payload_id: UUID,
+    max_chars: int | None = Query(default=None, ge=1, le=1_000_000),
+    board: Board = BOARD_DEP,
+    session: AsyncSession = SESSION_DEP,
+    agent_ctx: AgentAuthContext = AGENT_CTX_DEP,
+) -> BoardWebhookPayloadRead:
+    """Fetch a stored webhook payload (agent-accessible, read-only).
+
+    This enables board-scoped agents to backfill dropped webhook events and enforce
+    idempotency by inspecting previously received payloads.
+
+    If `max_chars` is provided and the serialized payload exceeds the limit,
+    the response payload is returned as a truncated string preview.
+    """
+
+    _guard_board_access(agent_ctx, board)
+
+    payload = (
+        await session.exec(
+            select(BoardWebhookPayload)
+            .where(col(BoardWebhookPayload.id) == payload_id)
+            .where(col(BoardWebhookPayload.board_id) == board.id)
+            .where(col(BoardWebhookPayload.webhook_id) == webhook_id),
+        )
+    ).first()
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    response = BoardWebhookPayloadRead.model_validate(payload, from_attributes=True)
+    if max_chars is not None and response.payload is not None:
+        preview, was_truncated = _payload_preview_with_limit(response.payload, max_chars=max_chars)
+        if was_truncated:
+            response.payload = preview
+
+    return response
+
+
 @router.post(
     "/boards/{board_id}/tasks",
     response_model=TaskRead,
@@ -768,6 +872,7 @@ async def create_task(
         task_id=task.id,
         message=f"Task created by lead: {task.title}.",
         agent_id=agent_ctx.agent.id,
+        board_id=task.board_id,
     )
     await session.commit()
     if task.assigned_agent_id:
@@ -818,7 +923,6 @@ async def create_task(
 )
 async def update_task(
     payload: TaskUpdate,
-    board: Board = BOARD_DEP,
     task: Task = TASK_DEP,
     session: AsyncSession = SESSION_DEP,
     agent_ctx: AgentAuthContext = AGENT_CTX_DEP,
@@ -827,7 +931,7 @@ async def update_task(
 
     Supports status, assignment, dependencies, and optional inline comment.
     """
-    _guard_task_access(agent_ctx, task, board)
+    _guard_task_access(agent_ctx, task)
     return await tasks_api.update_task(
         payload=payload,
         task=task,
@@ -869,13 +973,12 @@ async def update_task(
     ),
 )
 async def delete_task(
-    board: Board = BOARD_DEP,
     task: Task = TASK_DEP,
     session: AsyncSession = SESSION_DEP,
     agent_ctx: AgentAuthContext = AGENT_CTX_DEP,
 ) -> OkResponse:
     """Delete a task after board-lead authorization checks."""
-    _guard_task_access(agent_ctx, task, board)
+    _guard_task_access(agent_ctx, task)
     _require_board_lead(agent_ctx)
     if task.board_id is None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
@@ -904,7 +1007,6 @@ async def delete_task(
     ),
 )
 async def list_task_comments(
-    board: Board = BOARD_DEP,
     task: Task = TASK_DEP,
     session: AsyncSession = SESSION_DEP,
     agent_ctx: AgentAuthContext = AGENT_CTX_DEP,
@@ -913,7 +1015,7 @@ async def list_task_comments(
 
     Read this before posting updates to avoid duplicate or low-value comments.
     """
-    _guard_task_access(agent_ctx, task, board)
+    _guard_task_access(agent_ctx, task)
     return await tasks_api.list_task_comments(
         task=task,
         session=session,
@@ -942,7 +1044,6 @@ async def list_task_comments(
 )
 async def create_task_comment(
     payload: TaskCommentCreate,
-    board: Board = BOARD_DEP,
     task: Task = TASK_DEP,
     session: AsyncSession = SESSION_DEP,
     agent_ctx: AgentAuthContext = AGENT_CTX_DEP,
@@ -951,7 +1052,7 @@ async def create_task_comment(
 
     This is the primary collaboration/log surface for task progress.
     """
-    _guard_task_access(agent_ctx, task, board)
+    _guard_task_access(agent_ctx, task)
     return await tasks_api.create_task_comment(
         payload=payload,
         task=task,
@@ -1932,168 +2033,3 @@ async def broadcast_gateway_lead_message(
         actor_agent=agent_ctx.agent,
         payload=payload,
     )
-
-
-# ---------------------------------------------------------------------------
-# Group-level Tasks — agent-authenticated access
-# ---------------------------------------------------------------------------
-
-
-def _guard_group_access(agent_ctx: AgentAuthContext, group_id: UUID) -> None:
-    """Ensure the agent is allowed to access group-level tasks for this group."""
-    agent = agent_ctx.agent
-    # Board-scoped agents have no group access.
-    if agent.board_id and not agent.group_id:
-        OpenClawAuthorizationPolicy.require_board_write_access(allowed=False)
-    # Group agent: must match this group.
-    if agent.group_id is not None:
-        OpenClawAuthorizationPolicy.require_board_write_access(
-            allowed=agent.group_id == group_id,
-        )
-    # Gateway main agent (no board_id, no group_id): unrestricted.
-
-
-@router.get(
-    "/board-groups/{group_id}/tasks",
-    response_model=DefaultLimitOffsetPage[TaskRead],
-    tags=AGENT_ALL_ROLE_TAGS,
-    summary="List group-level tasks for a board group",
-    description=(
-        "Return tasks that belong directly to a board group (no inner board).\n\n"
-        "Group agents may only access their own group's tasks."
-    ),
-    openapi_extra=_agent_board_openapi_hints(
-        intent="agent_group_task_discovery",
-        when_to_use=[
-            "Group agent needs to review cross-board coordination tasks.",
-            "Main agent wants to inspect group-level backlog.",
-        ],
-        routing_examples=[
-            {
-                "input": {
-                    "intent": "group agent needs its own task list",
-                    "required_privilege": "any_agent",
-                },
-                "decision": "agent_group_task_discovery",
-            },
-        ],
-    ),
-)
-async def list_group_tasks_agent(
-    group_id: UUID,
-    session: AsyncSession = SESSION_DEP,
-    agent_ctx: AgentAuthContext = AGENT_CTX_DEP,
-) -> LimitOffsetPage[TaskRead]:
-    """List group-level tasks for a board group."""
-    _guard_group_access(agent_ctx, group_id)
-    group = await BoardGroup.objects.by_id(group_id).first(session)
-    if group is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    statement = (
-        select(Task)
-        .where(col(Task.board_group_id) == group_id)
-        .where(col(Task.board_id).is_(None))
-        .order_by(col(Task.created_at).desc())
-    )
-    return await paginate(session, statement)
-
-
-@router.post(
-    "/board-groups/{group_id}/tasks",
-    response_model=TaskRead,
-    tags=AGENT_LEAD_TAGS,
-    summary="Create a group-level task as group lead agent",
-    description=(
-        "Create a task scoped to a board group (no inner board).\n\n"
-        "Only the group lead agent or main agent may call this."
-    ),
-    openapi_extra=_agent_board_openapi_hints(
-        intent="agent_group_task_create",
-        required_actor="board_lead",
-        when_to_use=[
-            "Group lead agent needs to create a cross-board coordination task.",
-        ],
-        routing_examples=[
-            {
-                "input": {
-                    "intent": "group lead creates coordination task",
-                    "required_privilege": "board_lead",
-                },
-                "decision": "agent_group_task_create",
-            },
-        ],
-    ),
-)
-async def create_group_task_agent(
-    group_id: UUID,
-    payload: TaskCreate,
-    session: AsyncSession = SESSION_DEP,
-    agent_ctx: AgentAuthContext = AGENT_CTX_DEP,
-) -> Task:
-    """Create a group-level task as the group lead agent."""
-    _guard_group_access(agent_ctx, group_id)
-    _require_board_lead(agent_ctx)
-    group = await BoardGroup.objects.by_id(group_id).first(session)
-    if group is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    data = payload.model_dump(exclude={"depends_on_task_ids", "tag_ids", "custom_field_values"})
-    task = Task.model_validate(data)
-    task.board_group_id = group_id
-    task.board_id = None
-    task.organization_id = group.organization_id
-    task.auto_created = True
-    task.auto_reason = f"group_agent:{agent_ctx.agent.id}"
-    session.add(task)
-    await session.commit()
-    await session.refresh(task)
-    return task
-
-
-# ---------------------------------------------------------------------------
-# Board Secrets — agent-authenticated fetch
-# ---------------------------------------------------------------------------
-
-from app.core.encryption import decrypt_secret  # noqa: E402
-from app.models.board_secrets import BoardSecret  # noqa: E402
-
-
-@router.get(
-    "/secrets",
-    tags=["agent-worker", "agent-lead"],
-    summary="Fetch board secrets for this agent's board",
-    description=(
-        "Returns all secrets provisioned for the agent's board as key/value pairs.\n\n"
-        "Call this **once per session** before any task that requires external credentials. "
-        "Export the returned values as environment variables and use them in commands."
-    ),
-    operation_id="agent_get_secrets",
-    openapi_extra={
-        "x-llm-intent": "fetch_credentials",
-        "x-when-to-use": [
-            "Before any task requiring external tool access (GitHub, npm, cloud, etc.)",
-            "When TOOLS.md lists secret keys you need to use",
-            "At session start if credentials are likely needed",
-        ],
-        "x-when-not-to-use": [
-            "When no external credentials are needed for the current task",
-        ],
-    },
-)
-async def get_board_secrets(
-    session: AsyncSession = SESSION_DEP,
-    agent_ctx: AgentAuthContext = AGENT_CTX_DEP,
-) -> dict[str, str]:
-    """Return decrypted board secrets as {KEY: value} for the agent's board."""
-    agent = agent_ctx.agent
-    if not agent.board_id:
-        return {}
-    result = await session.exec(
-        select(BoardSecret).where(BoardSecret.board_id == agent.board_id)
-    )
-    secrets: dict[str, str] = {}
-    for s in result.all():
-        try:
-            secrets[s.key] = decrypt_secret(s.encrypted_value)
-        except Exception:
-            pass  # skip corrupted entries
-    return secrets

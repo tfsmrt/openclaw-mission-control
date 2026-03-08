@@ -20,7 +20,6 @@ from app.api.board_groups import router as board_groups_router
 from app.api.board_memory import router as board_memory_router
 from app.api.board_onboarding import router as board_onboarding_router
 from app.api.board_webhooks import router as board_webhooks_router
-from app.api.board_secrets import router as board_secrets_router
 from app.api.boards import router as boards_router
 from app.api.gateway import router as gateway_router
 from app.api.gateways import router as gateways_router
@@ -32,13 +31,11 @@ from app.api.tags import router as tags_router
 from app.api.task_custom_fields import router as task_custom_fields_router
 from app.api.tasks import router as tasks_router
 from app.api.users import router as users_router
-from app.core.security_headers import SecurityHeadersMiddleware
-from app.api.notifications import router as notifications_router
-from app.api.search import router as search_router
-from app.api.workspace_files import router as workspace_files_router
 from app.core.config import settings
 from app.core.error_handling import install_error_handling
 from app.core.logging import configure_logging, get_logger
+from app.core.rate_limit import validate_rate_limit_redis
+from app.core.rate_limit_backend import RateLimitBackend
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.db.session import init_db
 from app.schemas.health import HealthStatusResponse
@@ -436,25 +433,21 @@ class MissionControlFastAPI(FastAPI):
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Initialize application resources before serving requests."""
-    import asyncio
-    from app.services.openclaw.agent_watchdog import watchdog_loop
-
     logger.info(
         "app.lifecycle.starting environment=%s db_auto_migrate=%s",
         settings.environment,
         settings.db_auto_migrate,
     )
     await init_db()
-    watchdog_task = asyncio.create_task(watchdog_loop(), name="agent-watchdog")
-    logger.info("app.lifecycle.started watchdog=running")
+    if settings.rate_limit_backend == RateLimitBackend.REDIS:
+        validate_rate_limit_redis(settings.rate_limit_redis_url)
+        logger.info("app.lifecycle.rate_limit backend=redis")
+    else:
+        logger.info("app.lifecycle.rate_limit backend=memory")
+    logger.info("app.lifecycle.started")
     try:
         yield
     finally:
-        watchdog_task.cancel()
-        try:
-            await watchdog_task
-        except asyncio.CancelledError:
-            pass
         logger.info("app.lifecycle.stopped")
 
 
@@ -557,15 +550,11 @@ api_v1.include_router(skills_marketplace_router)
 api_v1.include_router(board_groups_router)
 api_v1.include_router(board_group_memory_router)
 api_v1.include_router(boards_router)
-api_v1.include_router(board_secrets_router)
 api_v1.include_router(board_memory_router)
 api_v1.include_router(board_webhooks_router)
 api_v1.include_router(board_onboarding_router)
 api_v1.include_router(approvals_router)
 api_v1.include_router(tasks_router)
-api_v1.include_router(workspace_files_router)
-api_v1.include_router(notifications_router)
-api_v1.include_router(search_router)
 api_v1.include_router(task_custom_fields_router)
 api_v1.include_router(tags_router)
 api_v1.include_router(users_router)

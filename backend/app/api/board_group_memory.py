@@ -19,8 +19,8 @@ from app.api.deps import (
     ActorContext,
     get_board_for_actor_read,
     get_board_for_actor_write,
-    require_admin_or_agent,
     require_org_member,
+    require_user_or_agent,
 )
 from app.core.config import settings
 from app.core.time import utcnow
@@ -67,7 +67,7 @@ SESSION_DEP = Depends(get_session)
 ORG_MEMBER_DEP = Depends(require_org_member)
 BOARD_READ_DEP = Depends(get_board_for_actor_read)
 BOARD_WRITE_DEP = Depends(get_board_for_actor_write)
-ACTOR_DEP = Depends(require_admin_or_agent)
+ACTOR_DEP = Depends(require_user_or_agent)
 IS_CHAT_QUERY = Query(default=None)
 SINCE_QUERY = Query(default=None)
 _RUNTIME_TYPE_REFERENCES = (UUID,)
@@ -371,7 +371,7 @@ async def _notify_group_memory_targets(
     if len(snippet) > MAX_SNIPPET_LENGTH:
         snippet = f"{snippet[: MAX_SNIPPET_LENGTH - 3]}..."
 
-    base_url = settings.base_url or "http://localhost:8000"
+    base_url = settings.base_url
 
     dispatch = GatewayDispatchService(session)
 

@@ -345,6 +345,7 @@ async def _notify_agents_on_board_group_change(
                     f"{recipient_board.name} related to {board.name} and {group.name}."
                 ),
                 agent_id=agent.id,
+                board_id=recipient_board.id,
             )
         else:
             failed += 1
@@ -356,6 +357,7 @@ async def _notify_agents_on_board_group_change(
                     f"{recipient_board.name}: {error}"
                 ),
                 agent_id=agent.id,
+                board_id=recipient_board.id,
             )
 
     if notified or failed:
@@ -544,6 +546,7 @@ async def _notify_lead_on_board_update(
             event_type="board.lead_notified",
             message=f"Lead agent notified for board update: {board.name}.",
             agent_id=lead.id,
+            board_id=board.id,
         )
     else:
         record_activity(
@@ -551,6 +554,7 @@ async def _notify_lead_on_board_update(
             event_type="board.lead_notify_failed",
             message=f"Lead board update notify failed for {board.name}: {error}",
             agent_id=lead.id,
+            board_id=board.id,
         )
     await session.commit()
 
