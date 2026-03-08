@@ -16,9 +16,7 @@ import {
 import {
   applyBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatPost,
   type getBoardGroupApiV1BoardGroupsGroupIdGetResponse,
-  type getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse,
   useGetBoardGroupApiV1BoardGroupsGroupIdGet,
-  useGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet,
   useUpdateBoardGroupApiV1BoardGroupsGroupIdPatch,
 } from "@/api/generated/board-groups/board-groups";
 import {
@@ -241,20 +239,18 @@ export default function EditBoardGroupPage() {
     membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
   const isOrgAdmin = member?.role === "admin" || member?.role === "owner";
 
-  const heartbeatConfigQuery =
-    useGetBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGet<
-      getBoardGroupHeartbeatApiV1BoardGroupsGroupIdHeartbeatGetResponse,
-      ApiError
-    >(groupId ?? "", {
-      query: {
-        enabled: Boolean(isSignedIn && groupId && isOrgAdmin),
-        refetchOnMount: "always",
-        retry: false,
-      },
-    });
-
-  const heartbeatConfig: BoardGroupHeartbeatConfig | null =
-    heartbeatConfigQuery.data?.status === 200 ? heartbeatConfigQuery.data.data : null;
+  // Heartbeat config loaded via direct API call (GET hook removed in upstream regen)
+  const [heartbeatConfig, setHeartbeatConfig] = useState<BoardGroupHeartbeatConfig | null>(null);
+  useEffect(() => {
+    if (!isSignedIn || !groupId || !isOrgAdmin) return;
+    fetch(`/api/v1/board-groups/${groupId}/heartbeat`, {
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setHeartbeatConfig(data); })
+      .catch(() => {});
+  }, [isSignedIn, groupId, isOrgAdmin]);
 
   const workerHeartbeatEvery = useMemo(() => {
     const parsed = Number.parseInt(workerAmount, 10);
