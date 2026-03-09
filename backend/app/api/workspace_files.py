@@ -110,8 +110,11 @@ async def _workspace_roots_for_board(
         if not config_id:
             continue
         root = _workspace_root_for_config_id(config_id)
-        if root and root.exists():
-            results.append((agent.name, root))
+        try:
+            if root and root.exists():
+                results.append((agent.name, root))
+        except (PermissionError, OSError):
+            pass
     return results
 
 
