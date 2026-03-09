@@ -2,7 +2,6 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 
 import { SignedIn, SignedOut, useAuth } from "@/auth/clerk";
 import { Activity as ActivityIcon } from "lucide-react";
@@ -39,7 +38,6 @@ import { createExponentialBackoff } from "@/lib/backoff";
 import {
   DEFAULT_HUMAN_LABEL,
   resolveHumanActorName,
-  resolveMemberDisplayName,
 } from "@/lib/display-name";
 import { apiDatetimeToMs, parseApiDatetime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
@@ -83,27 +81,20 @@ type FeedItem = {
   created_at: string;
   event_type: FeedEventType;
   message: string | null;
-  source_event_id: string | null;
   agent_id: string | null;
   actor_name: string;
   actor_role: string | null;
   board_id: string | null;
   board_name: string | null;
-  board_href: string | null;
   task_id: string | null;
   task_title: string | null;
   title: string;
-  context_href: string | null;
 };
 
 type TaskMeta = {
   title: string;
   boardId: string | null;
 };
-
-type ActivityRouteParams = Record<string, string>;
-
-const ACTIVITY_FEED_PATH = "/activity";
 
 const TASK_EVENT_TYPES = new Set<TaskEventType>([
   "task.comment",
@@ -125,76 +116,6 @@ const formatShortTimestamp = (value: string) => {
     minute: "2-digit",
   });
 };
-
-const normalizeRouteParams = (
-  params: ActivityEventRead["route_params"] | ActivityRouteParams | null | undefined,
-): ActivityRouteParams => {
-  if (!params || typeof params !== "object") return {};
-  return Object.entries(params).reduce<ActivityRouteParams>((acc, [key, value]) => {
-    if (typeof value === "string" && value.length > 0) {
-      acc[key] = value;
-    }
-    return acc;
-  }, {});
-};
-
-const buildRouteHref = (
-  routeName: string | null | undefined,
-  routeParams: ActivityRouteParams,
-  fallback: {
-    eventId: string;
-    eventType: string;
-    createdAt: string;
-    taskId: string | null;
-  },
-): string => {
-  if (routeName === "board.approvals") {
-    const boardId = routeParams.boardId;
-    if (boardId) {
-      return `/boards/${encodeURIComponent(boardId)}/approvals`;
-    }
-  }
-
-  if (routeName === "board") {
-    const boardId = routeParams.boardId;
-    if (boardId) {
-      const params = new URLSearchParams();
-      Object.entries(routeParams).forEach(([key, value]) => {
-        if (key !== "boardId") params.set(key, value);
-      });
-      const query = params.toString();
-      return query
-        ? `/boards/${encodeURIComponent(boardId)}?${query}`
-        : `/boards/${encodeURIComponent(boardId)}`;
-    }
-  }
-
-  const params = new URLSearchParams(
-    Object.keys(routeParams).length > 0
-      ? routeParams
-      : {
-          eventId: fallback.eventId,
-          eventType: fallback.eventType,
-          createdAt: fallback.createdAt,
-        },
-  );
-  if (fallback.taskId && !params.has("taskId")) {
-    params.set("taskId", fallback.taskId);
-  }
-  return `${ACTIVITY_FEED_PATH}?${params.toString()}`;
-};
-
-const buildBoardHref = (
-  routeParams: ActivityRouteParams,
-  boardId: string | null,
-): string | null => {
-  const resolved = routeParams.boardId ?? boardId;
-  if (!resolved) return null;
-  return `/boards/${encodeURIComponent(resolved)}`;
-};
-
-const feedItemElementId = (id: string): string =>
-  `activity-item-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
 const normalizeAgent = (agent: AgentRead): Agent => ({
   ...agent,
@@ -242,13 +163,13 @@ const eventLabel = (eventType: FeedEventType): string => {
 
 const eventPillClass = (eventType: FeedEventType): string => {
   if (eventType === "task.comment") {
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-info";
   }
   if (eventType === "task.created") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-emerald-200 bg-[color:var(--success-soft)] text-success";
   }
   if (eventType === "task.status_changed") {
-    return "border-amber-200 bg-amber-50 text-amber-700";
+    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-warning";
   }
   if (eventType === "board.chat") {
     return "border-teal-200 bg-teal-50 text-teal-700";
@@ -263,10 +184,10 @@ const eventPillClass = (eventType: FeedEventType): string => {
     return "border-lime-200 bg-lime-50 text-lime-700";
   }
   if (eventType === "agent.offline") {
-    return "border-slate-300 bg-slate-100 text-slate-700";
+    return "border-[color:var(--border-strong)] bg-[color:var(--surface-strong)] text-muted";
   }
   if (eventType === "agent.updated") {
-    return "border-indigo-200 bg-indigo-50 text-indigo-700";
+    return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-info";
   }
   if (eventType === "approval.created") {
     return "border-cyan-200 bg-cyan-50 text-cyan-700";
@@ -275,44 +196,35 @@ const eventPillClass = (eventType: FeedEventType): string => {
     return "border-sky-200 bg-sky-50 text-sky-700";
   }
   if (eventType === "approval.approved") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-emerald-200 bg-[color:var(--success-soft)] text-success";
   }
   if (eventType === "approval.rejected") {
-    return "border-rose-200 bg-rose-50 text-rose-700";
+    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-danger";
   }
-  return "border-slate-200 bg-slate-100 text-slate-700";
+  return "border-[color:var(--border)] bg-[color:var(--surface-strong)] text-muted";
 };
 
-const FeedCard = memo(function FeedCard({
-  item,
-  isHighlighted = false,
-}: {
-  item: FeedItem;
-  isHighlighted?: boolean;
-}) {
+const FeedCard = memo(function FeedCard({ item }: { item: FeedItem }) {
   const message = (item.message ?? "").trim();
   const authorAvatar = (item.actor_name[0] ?? "A").toUpperCase();
+  const taskHref =
+    item.board_id && item.task_id
+      ? `/boards/${item.board_id}?taskId=${item.task_id}`
+      : null;
+  const boardHref = item.board_id ? `/boards/${item.board_id}` : null;
 
   return (
-    <div
-      id={feedItemElementId(item.id)}
-      className={cn(
-        "scroll-mt-28 rounded-xl border bg-white p-4 transition",
-        isHighlighted
-          ? "border-blue-300 ring-2 ring-blue-200"
-          : "border-slate-200 hover:border-slate-300",
-      )}
-    >
+    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 transition hover:border-[color:var(--border-strong)]">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-strong)] text-xs font-semibold text-muted">
           {authorAvatar}
         </div>
         <div className="min-w-0 flex-1">
           <div className="min-w-0">
-            {item.context_href ? (
+            {taskHref ? (
               <Link
-                href={item.context_href}
-                className="block text-sm font-semibold leading-snug text-slate-900 transition hover:text-slate-950 hover:underline"
+                href={taskHref}
+                className="block text-sm font-semibold leading-snug text-strong transition hover:text-[color:var(--text)] hover:underline"
                 title={item.title}
                 style={{
                   display: "-webkit-box",
@@ -324,11 +236,11 @@ const FeedCard = memo(function FeedCard({
                 {item.title}
               </Link>
             ) : (
-              <p className="text-sm font-semibold leading-snug text-slate-900">
+              <p className="text-sm font-semibold leading-snug text-strong">
                 {item.title}
               </p>
             )}
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-quiet">
               <span
                 className={cn(
                   "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -337,32 +249,32 @@ const FeedCard = memo(function FeedCard({
               >
                 {eventLabel(item.event_type)}
               </span>
-              {item.board_href && item.board_name ? (
+              {boardHref && item.board_name ? (
                 <Link
-                  href={item.board_href}
-                  className="font-semibold text-slate-700 hover:text-slate-900 hover:underline"
+                  href={boardHref}
+                  className="font-semibold text-muted hover:text-strong hover:underline"
                 >
                   {item.board_name}
                 </Link>
               ) : item.board_name ? (
-                <span className="font-semibold text-slate-700">
+                <span className="font-semibold text-muted">
                   {item.board_name}
                 </span>
               ) : null}
               {item.board_name ? (
-                <span className="text-slate-300">·</span>
+                <span className="text-quiet">·</span>
               ) : null}
-              <span className="font-medium text-slate-700">
+              <span className="font-medium text-muted">
                 {item.actor_name}
               </span>
               {item.actor_role ? (
                 <>
-                  <span className="text-slate-300">·</span>
-                  <span className="text-slate-500">{item.actor_role}</span>
+                  <span className="text-quiet">·</span>
+                  <span className="text-quiet">{item.actor_role}</span>
                 </>
               ) : null}
-              <span className="text-slate-300">·</span>
-              <span className="text-slate-400">
+              <span className="text-quiet">·</span>
+              <span className="text-quiet">
                 {formatShortTimestamp(item.created_at)}
               </span>
             </div>
@@ -370,11 +282,11 @@ const FeedCard = memo(function FeedCard({
         </div>
       </div>
       {message ? (
-        <div className="mt-3 select-text cursor-text text-sm leading-relaxed text-slate-900 break-words">
+        <div className="mt-3 select-text cursor-text text-sm leading-relaxed text-strong break-words">
           <Markdown content={message} variant="basic" />
         </div>
       ) : (
-        <p className="mt-3 text-sm text-slate-500">—</p>
+        <p className="mt-3 text-sm text-quiet">—</p>
       )}
     </div>
   );
@@ -389,15 +301,7 @@ export default function ActivityPage() {
   }, []);
 
   const { isSignedIn } = useAuth();
-  const searchParams = useSearchParams();
   const isPageActive = usePageActive();
-  const selectedEventId = useMemo(() => {
-    const value = searchParams.get("eventId");
-    if (!value) return null;
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }, [searchParams]);
-  const [highlightedFeedItemId, setHighlightedFeedItemId] = useState<string | null>(null);
 
   const membershipQuery = useGetMyMembershipApiV1OrganizationsMeMemberGet<
     getMyMembershipApiV1OrganizationsMeMemberGetResponse,
@@ -415,12 +319,6 @@ export default function ActivityPage() {
       membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
     return member ? ["owner", "admin"].includes(member.role) : false;
   }, [membershipQuery.data]);
-  const currentUserDisplayName = useMemo(() => {
-    const member =
-      membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
-    return resolveMemberDisplayName(member, DEFAULT_HUMAN_LABEL);
-  }, [membershipQuery.data]);
-
   const [isFeedLoading, setIsFeedLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
@@ -451,7 +349,7 @@ export default function ActivityPage() {
   const resolveAuthor = useCallback(
     (
       agentId: string | null | undefined,
-      fallbackName: string = currentUserDisplayName,
+      fallbackName: string = DEFAULT_HUMAN_LABEL,
     ) => {
       if (agentId) {
         const agent = agentsByIdRef.current.get(agentId);
@@ -469,7 +367,7 @@ export default function ActivityPage() {
         role: null,
       };
     },
-    [currentUserDisplayName],
+    [],
   );
 
   const boardNameForId = useCallback((boardId: string | null | undefined) => {
@@ -492,56 +390,33 @@ export default function ActivityPage() {
   );
 
   const mapTaskActivity = useCallback(
-    (
-      event: ActivityEventRead,
-      fallbackBoardId: string | null = null,
-    ): FeedItem | null => {
+    (event: ActivityEventRead): FeedItem | null => {
       if (!isTaskEventType(event.event_type)) return null;
       const meta = event.task_id
         ? taskMetaByIdRef.current.get(event.task_id)
         : null;
-      const routeName = event.route_name ?? null;
-      const routeParams = normalizeRouteParams(event.route_params);
-      const taskId = event.task_id ?? routeParams.taskId ?? null;
-      const boardId =
-        meta?.boardId ??
-        event.board_id ??
-        routeParams.boardId ??
-        fallbackBoardId ??
-        null;
-      const fallbackRouteParams: ActivityRouteParams = {};
-      if (boardId) fallbackRouteParams.boardId = boardId;
-      if (taskId) fallbackRouteParams.taskId = taskId;
-      const effectiveRouteParams =
-        Object.keys(routeParams).length > 0 ? routeParams : fallbackRouteParams;
-      const effectiveRouteName =
-        routeName ?? (boardId ? "board" : "activity");
-      const author = resolveAuthor(event.agent_id, currentUserDisplayName);
+      const boardId = meta?.boardId ?? null;
+      const author = resolveAuthor(
+        event.agent_id,
+        event.author_name ?? DEFAULT_HUMAN_LABEL,
+      );
       return {
         id: `activity:${event.id}`,
         created_at: event.created_at,
         event_type: event.event_type,
         message: event.message ?? null,
-        source_event_id: event.id,
         agent_id: author.id,
         actor_name: author.name,
         actor_role: author.role,
         board_id: boardId,
         board_name: boardNameForId(boardId),
-        board_href: buildBoardHref(effectiveRouteParams, boardId),
-        task_id: taskId,
+        task_id: event.task_id ?? null,
         task_title: meta?.title ?? null,
         title:
-          meta?.title ?? (taskId ? "Unknown task" : "Task activity"),
-        context_href: buildRouteHref(effectiveRouteName, effectiveRouteParams, {
-          eventId: event.id,
-          eventType: event.event_type,
-          createdAt: event.created_at,
-          taskId,
-        }),
+          meta?.title ?? (event.task_id ? "Unknown task" : "Task activity"),
       };
     },
-    [boardNameForId, currentUserDisplayName, resolveAuthor],
+    [boardNameForId, resolveAuthor],
   );
 
   const mapTaskComment = useCallback(
@@ -550,37 +425,27 @@ export default function ActivityPage() {
         ? taskMetaByIdRef.current.get(comment.task_id)
         : null;
       const boardId = meta?.boardId ?? fallbackBoardId;
-      const taskId = comment.task_id ?? null;
-      const routeParams: ActivityRouteParams = {};
-      if (boardId) routeParams.boardId = boardId;
-      if (taskId) routeParams.taskId = taskId;
-      routeParams.commentId = comment.id;
-      const author = resolveAuthor(comment.agent_id, currentUserDisplayName);
+      const author = resolveAuthor(
+        comment.agent_id,
+        comment.author_name ?? DEFAULT_HUMAN_LABEL,
+      );
       return {
         id: `comment:${comment.id}`,
         created_at: comment.created_at,
         event_type: "task.comment",
         message: comment.message ?? null,
-        source_event_id: null,
         agent_id: author.id,
         actor_name: author.name,
         actor_role: author.role,
         board_id: boardId,
         board_name: boardNameForId(boardId),
-        board_href: buildBoardHref(routeParams, boardId),
-        task_id: taskId,
+        task_id: comment.task_id ?? null,
         task_title: meta?.title ?? null,
         title:
-          meta?.title ?? (taskId ? "Unknown task" : "Task activity"),
-        context_href: buildRouteHref("board", routeParams, {
-          eventId: comment.id,
-          eventType: "task.comment",
-          createdAt: comment.created_at,
-          taskId,
-        }),
+          meta?.title ?? (comment.task_id ? "Unknown task" : "Task activity"),
       };
     },
-    [boardNameForId, currentUserDisplayName, resolveAuthor],
+    [boardNameForId, resolveAuthor],
   );
 
   const mapApprovalEvent = useCallback(
@@ -611,7 +476,7 @@ export default function ActivityPage() {
           ? approval.created_at
           : (approval.resolved_at ?? approval.created_at);
       const action = humanizeApprovalAction(approval.action_type);
-      const author = resolveAuthor(approval.agent_id, currentUserDisplayName);
+      const author = resolveAuthor(approval.agent_id);
       const statusText =
         nextStatus === "approved"
           ? "approved"
@@ -630,33 +495,23 @@ export default function ActivityPage() {
       const taskMeta = approval.task_id
         ? taskMetaByIdRef.current.get(approval.task_id)
         : null;
-      const routeParams: ActivityRouteParams = { boardId };
-      const taskId = approval.task_id ?? null;
 
       return {
         id: `approval:${approval.id}:${kind}:${stamp}`,
         created_at: stamp,
         event_type: kind,
         message,
-        source_event_id: null,
         agent_id: author.id,
         actor_name: author.name,
         actor_role: author.role,
         board_id: boardId,
         board_name: boardNameForId(boardId),
-        board_href: buildBoardHref(routeParams, boardId),
-        task_id: taskId,
+        task_id: approval.task_id ?? null,
         task_title: taskMeta?.title ?? null,
         title: `Approval · ${action}`,
-        context_href: buildRouteHref("board.approvals", routeParams, {
-          eventId: approval.id,
-          eventType: kind,
-          createdAt: stamp,
-          taskId,
-        }),
       };
     },
-    [boardNameForId, currentUserDisplayName, resolveAuthor],
+    [boardNameForId, resolveAuthor],
   );
 
   const mapBoardChat = useCallback(
@@ -664,34 +519,25 @@ export default function ActivityPage() {
       const content = (memory.content ?? "").trim();
       const actorName = resolveHumanActorName(
         memory.source,
-        currentUserDisplayName,
+        DEFAULT_HUMAN_LABEL,
       );
       const command = content.startsWith("/");
-      const routeParams: ActivityRouteParams = { boardId, panel: "chat" };
       return {
         id: `chat:${memory.id}`,
         created_at: memory.created_at,
         event_type: command ? "board.command" : "board.chat",
         message: content || null,
-        source_event_id: null,
         agent_id: null,
         actor_name: actorName,
         actor_role: null,
         board_id: boardId,
         board_name: boardNameForId(boardId),
-        board_href: buildBoardHref(routeParams, boardId),
         task_id: null,
         task_title: null,
         title: command ? "Board command" : "Board chat",
-        context_href: buildRouteHref("board", routeParams, {
-          eventId: memory.id,
-          eventType: command ? "board.command" : "board.chat",
-          createdAt: memory.created_at,
-          taskId: null,
-        }),
       };
     },
-    [boardNameForId, currentUserDisplayName],
+    [boardNameForId],
   );
 
   const mapAgentEvent = useCallback(
@@ -740,35 +586,20 @@ export default function ActivityPage() {
             : kind === "agent.offline"
               ? `${agent.name} is offline.`
               : `${agent.name} updated (${humanizeStatus(nextStatus)}).`;
-      const boardId = agent.board_id ?? null;
-      const routeParams: ActivityRouteParams = boardId
-        ? { boardId }
-        : {};
 
       return {
         id: `agent:${agent.id}:${isSnapshot ? "snapshot" : kind}:${stamp}`,
         created_at: stamp,
         event_type: kind,
         message,
-        source_event_id: null,
         agent_id: agent.id,
         actor_name: agent.name,
         actor_role: roleFromAgent(agent),
-        board_id: boardId,
-        board_name: boardNameForId(boardId),
-        board_href: buildBoardHref(routeParams, boardId),
+        board_id: agent.board_id ?? null,
+        board_name: boardNameForId(agent.board_id),
         task_id: null,
         task_title: null,
         title: `Agent · ${agent.name}`,
-        context_href:
-          boardId === null
-            ? null
-            : buildRouteHref("board", routeParams, {
-                eventId: agent.id,
-                eventType: kind,
-                createdAt: stamp,
-                taskId: null,
-              }),
       };
     },
     [boardNameForId],
@@ -1007,8 +838,12 @@ export default function ActivityPage() {
                     updateTaskMeta(payload.task, boardId);
                   }
                   if (payload.activity) {
-                    const mapped = mapTaskActivity(payload.activity, boardId);
+                    const mapped = mapTaskActivity(payload.activity);
                     if (mapped) {
+                      if (!mapped.board_id) {
+                        mapped.board_id = boardId;
+                        mapped.board_name = boardNameForId(boardId);
+                      }
                       if (!mapped.task_title && payload.task?.title) {
                         mapped.task_title = payload.task.title;
                         mapped.title = payload.task.title;
@@ -1449,48 +1284,6 @@ export default function ActivityPage() {
     });
   }, [feedItems]);
 
-  const selectedFeedItemId = useMemo(() => {
-    if (!selectedEventId) return null;
-    const directMatch = orderedFeed.find(
-      (item) => item.source_event_id === selectedEventId,
-    );
-    if (directMatch) return directMatch.id;
-    const fallbackMatch = orderedFeed.find(
-      (item) =>
-        item.id === selectedEventId || item.id === `activity:${selectedEventId}`,
-    );
-    return fallbackMatch?.id ?? null;
-  }, [orderedFeed, selectedEventId]);
-
-  useEffect(() => {
-    if (!selectedFeedItemId) {
-      setHighlightedFeedItemId(null);
-      return;
-    }
-
-    setHighlightedFeedItemId(selectedFeedItemId);
-    const scrollTimeout = window.setTimeout(() => {
-      const element = document.getElementById(feedItemElementId(selectedFeedItemId));
-      if (!element) return;
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 50);
-
-    const clearHighlightTimeout = window.setTimeout(() => {
-      setHighlightedFeedItemId((current) =>
-        current === selectedFeedItemId ? null : current,
-      );
-    }, 4_000);
-
-    return () => {
-      window.clearTimeout(scrollTimeout);
-      window.clearTimeout(clearHighlightTimeout);
-    };
-  }, [selectedFeedItemId]);
-
-  const hasUnresolvedDeepLink = Boolean(
-    selectedEventId && !selectedFeedItemId && !isFeedLoading && !feedError,
-  );
-
   return (
     <DashboardShell>
       {isMounted ? (
@@ -1506,18 +1299,18 @@ export default function ActivityPage() {
           </SignedOut>
           <SignedIn>
             <DashboardSidebar />
-            <main className="flex-1 overflow-y-auto bg-slate-50">
-              <div className="sticky top-0 z-30 border-b border-slate-200 bg-white">
-                <div className="px-4 py-4 md:px-8 md:py-6">
+            <main className="flex-1 overflow-y-auto bg-[color:var(--surface-muted)]">
+              <div className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)]">
+                <div className="px-8 py-6">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2">
-                        <ActivityIcon className="h-5 w-5 text-slate-600" />
-                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                        <ActivityIcon className="h-5 w-5 text-muted" />
+                        <h1 className="text-2xl font-semibold tracking-tight text-strong">
                           Live feed
                         </h1>
                       </div>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-1 text-sm text-quiet">
                         Realtime task, approval, agent, and board-chat activity
                         across all boards.
                       </p>
@@ -1526,23 +1319,12 @@ export default function ActivityPage() {
                 </div>
               </div>
 
-              <div className="p-4 md:p-8">
-                {hasUnresolvedDeepLink ? (
-                  <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                    Requested activity item is not in the current feed window yet.
-                  </div>
-                ) : null}
+              <div className="p-8">
                 <ActivityFeed
                   isLoading={isFeedLoading}
                   errorMessage={feedError}
                   items={orderedFeed}
-                  renderItem={(item) => (
-                    <FeedCard
-                      key={item.id}
-                      item={item}
-                      isHighlighted={highlightedFeedItemId === item.id}
-                    />
-                  )}
+                  renderItem={(item) => <FeedCard key={item.id} item={item} />}
                 />
               </div>
             </main>
