@@ -310,6 +310,12 @@ async def start_onboarding(
     session.add(onboarding)
     await session.commit()
     await session.refresh(onboarding)
+
+    # Auto-post Q1 immediately — no need to wait for gateway agent
+    import asyncio
+    from app.services.openclaw.onboarding_auto_advance import auto_advance
+    asyncio.create_task(auto_advance(board_id=str(board.id), board_name=board.name, gateway_id=str(board.gateway_id)))
+
     return onboarding
 
 
@@ -357,7 +363,7 @@ async def answer_onboarding(
     # Auto-advance: post next question or completion without relying on gateway agent
     import asyncio
     from app.services.openclaw.onboarding_auto_advance import auto_advance
-    asyncio.create_task(auto_advance(session=session, board=board, onboarding=onboarding))
+    asyncio.create_task(auto_advance(board_id=str(board.id), board_name=board.name, gateway_id=str(board.gateway_id)))
 
     return onboarding
 

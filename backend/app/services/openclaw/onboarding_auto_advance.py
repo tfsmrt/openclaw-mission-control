@@ -205,93 +205,100 @@ def _build_completion(answers: list[str], board_name: str) -> dict[str, Any]:
 
 async def auto_advance(
     *,
-    session: AsyncSession,
-    board: Board,
-    onboarding: BoardOnboardingSession,
+    board_id: str,
+    board_name: str,
+    gateway_id: str,
 ) -> None:
     """Post the next onboarding question (or completion) using the gateway-agent token.
 
-    Called immediately after the user's answer is saved.  Uses an internal
-    HTTP call so it respects all existing auth/validation logic.
+    Opens its own DB session — safe to call as an asyncio background task
+    after the request session has been committed and closed.
     """
+    import asyncio
     import httpx
     from app.core.config import settings
-
-    # Collect user answers so far (skip the long initial prompt)
-    messages = list(onboarding.messages or [])
-    user_answers = [
-        m["content"]
-        for m in messages
-        if m.get("role") == "user"
-        and "BOARD ONBOARDING REQUEST" not in m.get("content", "")
-        and len(m.get("content", "")) < 2000
-    ]
-
-    answer_count = len(user_answers)
-    logger.info(
-        "onboarding.auto_advance board_id=%s answer_count=%d", board.id, answer_count
-    )
-
-    # Resolve gateway-agent token from DB
+    from app.db.session import async_session_maker
     from app.models.agents import Agent
-    from sqlmodel import select, col
-
-    gw_agent = (
-        await session.exec(
-            select(Agent).where(
-                col(Agent.gateway_id) == board.gateway_id,
-                col(Agent.openclaw_session_id).contains("mc-gateway-"),
-            )
-        )
-    ).first()
-
-    if gw_agent is None:
-        logger.warning("onboarding.auto_advance.no_gateway_agent board_id=%s", board.id)
-        return
-
-    # Verify we have a usable token hash — re-mint if needed
-    from app.services.openclaw.db_agent_state import mint_agent_token, verify_agent_token
+    from app.models.board_onboarding import BoardOnboardingSession
+    from app.models.boards import Board
+    from app.services.openclaw.db_agent_state import mint_agent_token
     from app.core.time import utcnow
     from datetime import timedelta
+    from sqlmodel import select, col
+    from uuid import UUID
 
-    # Check if current token works; if not, mint a new one
-    token_to_use: str | None = None
+    # Small delay to let the request session fully commit
+    await asyncio.sleep(0.3)
 
-    # Always mint a fresh token to avoid stale-token 401s
-    raw_token = mint_agent_token(gw_agent)
-    gw_agent.checkin_deadline_at = utcnow() + timedelta(hours=2)
-    session.add(gw_agent)
-    await session.commit()
-    token_to_use = raw_token
+    async with async_session_maker() as session:
+        board_uuid = UUID(str(board_id))
+        gw_uuid = UUID(str(gateway_id))
 
+        # Fetch latest onboarding session
+        onboarding = (
+            await session.exec(
+                select(BoardOnboardingSession)
+                .where(col(BoardOnboardingSession.board_id) == board_uuid)
+                .order_by(col(BoardOnboardingSession.updated_at).desc())
+            )
+        ).first()
+
+        if onboarding is None or onboarding.status not in ("active",):
+            logger.info("onboarding.auto_advance.skip board_id=%s status=%s", board_id, onboarding.status if onboarding else "none")
+            return
+
+        # Collect user answers (skip the initial long prompt)
+        messages = list(onboarding.messages or [])
+        user_answers = [
+            m["content"]
+            for m in messages
+            if m.get("role") == "user"
+            and "BOARD ONBOARDING REQUEST" not in m.get("content", "")
+            and len(m.get("content", "")) < 2000
+        ]
+        answer_count = len(user_answers)
+
+        logger.info("onboarding.auto_advance board_id=%s answer_count=%d", board_id, answer_count)
+
+        # Fetch gateway agent and mint a fresh token
+        gw_agent = (
+            await session.exec(
+                select(Agent).where(
+                    col(Agent.gateway_id) == gw_uuid,
+                    col(Agent.openclaw_session_id).contains("mc-gateway-"),
+                )
+            )
+        ).first()
+
+        if gw_agent is None:
+            logger.warning("onboarding.auto_advance.no_gateway_agent board_id=%s", board_id)
+            return
+
+        raw_token = mint_agent_token(gw_agent)
+        gw_agent.checkin_deadline_at = utcnow() + timedelta(hours=2)
+        session.add(gw_agent)
+        await session.commit()
+
+    # Build payload outside the session
     base_url = str(settings.base_url).rstrip("/") if hasattr(settings, "base_url") else "https://api.somrat.tech"
-    endpoint = f"{base_url}/api/v1/boards/{board.id}/onboarding/agent"
+    endpoint = f"{base_url}/api/v1/boards/{board_id}/onboarding/agent"
 
     if answer_count < len(_QUESTIONS):
         q = _QUESTIONS[answer_count]
-        payload = {"question": q["question"], "options": q["options"]}
+        payload: dict = {"question": q["question"], "options": q["options"]}
     else:
-        payload = _build_completion(user_answers, board.name)
+        payload = _build_completion(user_answers, board_name)
 
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(
                 endpoint,
                 json=payload,
-                headers={"X-Agent-Token": token_to_use, "Content-Type": "application/json"},
+                headers={"X-Agent-Token": raw_token, "Content-Type": "application/json"},
             )
             if resp.status_code == 200:
-                logger.info(
-                    "onboarding.auto_advance.posted board_id=%s answer_count=%d status=ok",
-                    board.id,
-                    answer_count,
-                )
+                logger.info("onboarding.auto_advance.posted board_id=%s answer_count=%d", board_id, answer_count)
             else:
-                logger.warning(
-                    "onboarding.auto_advance.post_failed board_id=%s status=%d body=%s",
-                    board.id,
-                    resp.status_code,
-                    resp.text[:200],
-                )
+                logger.warning("onboarding.auto_advance.post_failed board_id=%s status=%d body=%s", board_id, resp.status_code, resp.text[:300])
     except Exception as exc:
-        logger.error("onboarding.auto_advance.error board_id=%s error=%s", board.id, exc)
+        logger.error("onboarding.auto_advance.error board_id=%s error=%s", board_id, exc)
