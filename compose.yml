@@ -46,10 +46,11 @@ services:
       BASE_URL: ${BASE_URL}
       RQ_REDIS_URL: redis://localhost:6379/0
       OPENCLAW_GATEWAY_DEVICE_IDENTITY_PATH: /root/.openclaw/identity/mission-control.json
+      OPENCLAW_CONFIG_PATH: /etc/openclaw/config.json
     volumes:
       - /root/.openclaw/identity:/root/.openclaw/identity:rw
       - /root/.openclaw/workspace:/root/.openclaw/workspace:ro
-      - /root/.openclaw/openclaw.json:/root/.openclaw/openclaw.json:ro
+      - /root/.openclaw/openclaw.json:/etc/openclaw/config.json:ro
     depends_on:
       db:
         condition: service_healthy

@@ -24,7 +24,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 router = APIRouter(prefix="/boards/{board_id}/workspace", tags=["workspace-files"])
 
-OPENCLAW_CONFIG_PATH = Path("/root/.openclaw/openclaw.json")
+OPENCLAW_CONFIG_PATH = Path(
+    os.environ.get("OPENCLAW_CONFIG_PATH", "/root/.openclaw/openclaw.json")
+)
 
 # File extensions we consider safe to read as text
 _TEXT_EXTENSIONS = {
