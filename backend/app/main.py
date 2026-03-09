@@ -11,6 +11,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi_pagination import add_pagination
 
 from app.api.activity import router as activity_router
+from app.services.openclaw.agent_watchdog import watchdog_loop
 from app.api.agent import router as agent_router
 from app.api.agents import router as agents_router
 from app.api.approvals import router as approvals_router
@@ -433,6 +434,8 @@ class MissionControlFastAPI(FastAPI):
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Initialize application resources before serving requests."""
+    import asyncio
+
     logger.info(
         "app.lifecycle.starting environment=%s db_auto_migrate=%s",
         settings.environment,
@@ -444,10 +447,19 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         logger.info("app.lifecycle.rate_limit backend=redis")
     else:
         logger.info("app.lifecycle.rate_limit backend=memory")
+
+    watchdog_task = asyncio.create_task(watchdog_loop(), name="agent-watchdog")
+    logger.info("app.lifecycle.watchdog.started")
+
     logger.info("app.lifecycle.started")
     try:
         yield
     finally:
+        watchdog_task.cancel()
+        try:
+            await watchdog_task
+        except asyncio.CancelledError:
+            pass
         logger.info("app.lifecycle.stopped")
 
 
