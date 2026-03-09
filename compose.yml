@@ -45,11 +45,11 @@ services:
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
       BASE_URL: ${BASE_URL}
       RQ_REDIS_URL: redis://localhost:6379/0
-      OPENCLAW_GATEWAY_DEVICE_IDENTITY_PATH: /root/.openclaw/identity/mission-control.json
+      OPENCLAW_GATEWAY_DEVICE_IDENTITY_PATH: /app/identity/mission-control.json
       OPENCLAW_CONFIG_PATH: /etc/openclaw/config.json
       WORKSPACE_ROOT_REMAP: /root/.openclaw/workspace=/app/workspaces
     volumes:
-      - /root/.openclaw/identity:/root/.openclaw/identity:rw
+      - /root/.openclaw/identity:/app/identity:rw
       - /root/.openclaw/workspace:/app/workspaces:ro
       - /root/.openclaw/openclaw.json:/etc/openclaw/config.json:ro
     depends_on:
