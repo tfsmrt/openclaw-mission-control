@@ -338,18 +338,27 @@ async def answer_onboarding(
         {"role": "user", "content": answer_text, "timestamp": utcnow().isoformat()},
     )
 
-    await dispatcher.dispatch_answer(
-        board=board,
-        onboarding=onboarding,
-        answer_text=answer_text,
-        correlation_id=f"onboarding.answer:{board.id}:{onboarding.id}",
-    )
+    try:
+        await dispatcher.dispatch_answer(
+            board=board,
+            onboarding=onboarding,
+            answer_text=answer_text,
+            correlation_id=f"onboarding.answer:{board.id}:{onboarding.id}",
+        )
+    except Exception:
+        pass  # gateway dispatch is best-effort; auto-advance handles progression
 
     onboarding.messages = messages
     onboarding.updated_at = utcnow()
     session.add(onboarding)
     await session.commit()
     await session.refresh(onboarding)
+
+    # Auto-advance: post next question or completion without relying on gateway agent
+    import asyncio
+    from app.services.openclaw.onboarding_auto_advance import auto_advance
+    asyncio.create_task(auto_advance(session=session, board=board, onboarding=onboarding))
+
     return onboarding
 
 
