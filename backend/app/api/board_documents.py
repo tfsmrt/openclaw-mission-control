@@ -123,4 +123,5 @@ async def delete_board_document(
         BoardDocument,
         col(BoardDocument.id) == doc_id,
         col(BoardDocument.board_id) == board_id,
+        commit=True,
     )
