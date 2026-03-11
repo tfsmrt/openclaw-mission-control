@@ -42,8 +42,18 @@ import type {
   BoardWebhookRead,
   BoardRead,
   BoardUpdate,
+  BoardDocumentRead,
 } from "@/api/generated/model";
 import { BoardOnboardingChat } from "@/components/BoardOnboardingChat";
+import { DocumentCard } from "@/components/molecules/DocumentCard";
+import { DocumentModal } from "@/components/molecules/DocumentModal";
+import { Plus } from "lucide-react";
+import {
+  useListBoardDocumentsApiV1BoardsBoardIdDocumentsGet,
+  useCreateBoardDocumentApiV1BoardsBoardIdDocumentsPost,
+  useUpdateBoardDocumentApiV1BoardsBoardIdDocumentsDocIdPatch,
+  useDeleteBoardDocumentApiV1BoardsBoardIdDocumentsDocIdDelete,
+} from "@/api/generated/boards/documents";
 import { DashboardPageLayout } from "@/components/templates/DashboardPageLayout";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
@@ -327,6 +337,10 @@ export default function EditBoardPage() {
     shouldAutoOpenOnboarding,
   );
 
+  // Documents state
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<BoardDocumentRead | null>(null);
+
   useEffect(() => {
     if (!isOnboardingOpen) return;
 
@@ -395,6 +409,21 @@ export default function EditBoardPage() {
       retry: false,
     },
   });
+  const documentsQuery = useListBoardDocumentsApiV1BoardsBoardIdDocumentsGet<
+    any,
+    ApiError
+  >(
+    boardId ?? "",
+    { limit: 100 },
+    {
+      query: {
+        enabled: Boolean(isSignedIn && isAdmin && boardId),
+        refetchOnMount: "always",
+        retry: false,
+      },
+    },
+  );
+
   const webhooksQuery = useListBoardWebhooksApiV1BoardsBoardIdWebhooksGet<
     listBoardWebhooksApiV1BoardsBoardIdWebhooksGetResponse,
     ApiError
@@ -488,6 +517,87 @@ export default function EditBoardPage() {
         },
       },
     });
+
+  const createDocumentMutation =
+    useCreateBoardDocumentApiV1BoardsBoardIdDocumentsPost<any>(
+      boardId ?? "",
+      {
+        mutation: {
+          onSuccess: () => {
+            documentsQuery.refetch();
+            setIsDocModalOpen(false);
+            setSelectedDocument(null);
+          },
+        },
+      }
+    );
+
+  const updateDocumentMutation =
+    useUpdateBoardDocumentApiV1BoardsBoardIdDocumentsDocIdPatch<any>(
+      boardId ?? "",
+      selectedDocument?.id,
+      {
+        mutation: {
+          onSuccess: () => {
+            documentsQuery.refetch();
+            setIsDocModalOpen(false);
+            setSelectedDocument(null);
+          },
+        },
+      }
+    );
+
+  const deleteDocumentMutation =
+    useDeleteBoardDocumentApiV1BoardsBoardIdDocumentsDocIdDelete<any>(
+      boardId ?? "",
+      {
+        mutation: {
+          onSuccess: () => {
+            documentsQuery.refetch();
+          },
+        },
+      }
+    );
+
+  const documents = useMemo(() => {
+    if (documentsQuery.data?.status !== 200) return [];
+    return (documentsQuery.data.data.items || []).sort((a: any, b: any) => a.order - b.order);
+  }, [documentsQuery.data]);
+
+  const handleEditDocument = (doc: BoardDocumentRead) => {
+    setSelectedDocument(doc);
+    setIsDocModalOpen(true);
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (confirm("Delete this document?")) {
+      await deleteDocumentMutation.mutateAsync({
+        board_id: boardId ?? "",
+        doc_id: docId,
+      });
+    }
+  };
+
+  const handleSaveDocument = async (data: {
+    title: string;
+    content: string;
+    description?: string;
+  }) => {
+    if (!boardId) return;
+
+    if (selectedDocument) {
+      await updateDocumentMutation.mutateAsync({
+        board_id: boardId,
+        doc_id: selectedDocument.id,
+        data,
+      });
+    } else {
+      await createDocumentMutation.mutateAsync({
+        ...data,
+        order: documents.length,
+      });
+    }
+  };
 
   const gateways = useMemo(() => {
     if (gatewaysQuery.data?.status !== 200) return [];
@@ -1262,6 +1372,64 @@ export default function EditBoardPage() {
                   );
                 })}
               </div>
+            </section>
+
+            {/* Docs/Guides */}
+            <section className="space-y-4 border-t border-[color:var(--border)] pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-strong">
+                    Docs/Guides
+                  </h2>
+                  <p className="mt-0.5 text-sm text-quiet">
+                    Add documents and guides to provide context for agents when working on this board.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDocument(null);
+                    setIsDocModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium bg-[color:var(--accent)] text-white hover:bg-[color:var(--accent-strong)] transition"
+                  disabled={isLoading}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Document
+                </button>
+              </div>
+
+              {documentsQuery.isLoading ? (
+                <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-6 text-center text-sm text-quiet">
+                  Loading documents...
+                </div>
+              ) : documents.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] px-4 py-6 text-center text-sm text-muted">
+                  No documents yet. Add guides to help agents understand the board context.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {documents.map((doc: any) => (
+                    <DocumentCard
+                      key={doc.id}
+                      document={doc}
+                      index={documents.indexOf(doc)}
+                      onEdit={handleEditDocument}
+                      onDelete={handleDeleteDocument}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <DocumentModal
+                open={isDocModalOpen}
+                document={selectedDocument}
+                onSave={handleSaveDocument}
+                onOpenChange={setIsDocModalOpen}
+                isSaving={
+                  createDocumentMutation.isPending || updateDocumentMutation.isPending
+                }
+              />
             </section>
 
             {/* Board Secrets */}
