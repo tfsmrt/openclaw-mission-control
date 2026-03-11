@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -30,10 +30,20 @@ export function DocumentModal({
   onOpenChange,
   isSaving = false,
 }: DocumentModalProps) {
-  const [title, setTitle] = useState(document?.title || "");
-  const [description, setDescription] = useState(document?.description || "");
-  const [content, setContent] = useState(document?.content || "");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Sync form state when document changes or modal opens
+  useEffect(() => {
+    if (open) {
+      setTitle(document?.title || "");
+      setDescription(document?.description || "");
+      setContent(document?.content || "");
+      setError(null);
+    }
+  }, [open, document]);
 
   const handleSave = async () => {
     if (!title.trim()) {
