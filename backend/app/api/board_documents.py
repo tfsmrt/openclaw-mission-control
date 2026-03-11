@@ -5,6 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, status
+from fastapi_pagination.limit_offset import LimitOffsetPage
 from sqlmodel import col, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,24 +17,24 @@ from app.models.board_documents import (
     BoardDocumentUpdate,
 )
 from app.db import crud
+from app.db.pagination import paginate
+from app.schemas.pagination import DefaultLimitOffsetPage
 
 router = APIRouter(prefix="/boards/{board_id}/documents", tags=["board-documents"])
 
 
-@router.get("", response_model=list[BoardDocumentRead])
+@router.get("", response_model=DefaultLimitOffsetPage[BoardDocumentRead])
 async def list_board_documents(
     board_id: UUID,
-    limit: int = 100,
     session: AsyncSession = SESSION_DEP,
-) -> list[BoardDocumentRead]:
+) -> LimitOffsetPage[BoardDocumentRead]:
     """List all documents for a board."""
-    documents = await session.exec(
+    statement = (
         select(BoardDocument)
         .where(col(BoardDocument.board_id) == board_id)
         .order_by(col(BoardDocument.order), col(BoardDocument.created_at))
-        .limit(limit)
     )
-    return [BoardDocumentRead.model_validate(doc, from_attributes=True) for doc in documents]
+    return await paginate(session, statement)
 
 
 @router.post("", response_model=BoardDocumentRead, status_code=status.HTTP_201_CREATED)
