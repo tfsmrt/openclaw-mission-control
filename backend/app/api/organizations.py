@@ -404,16 +404,56 @@ async def get_my_membership(
     session: AsyncSession = SESSION_DEP,
     ctx: OrganizationContext = ORG_MEMBER_DEP,
 ) -> OrganizationMemberRead:
-    """Get the caller's membership record in the active organization."""
+    """Get the caller's membership record in the active organization.
+    
+    The board_access array includes:
+    - Direct board access entries
+    - Expanded entries for all boards in groups the member has access to
+    """
+    from app.models.boards import Board
+    
     user = await User.objects.by_id(ctx.member.user_id).first(session)
     access_rows = await OrganizationBoardAccess.objects.filter_by(
         organization_member_id=ctx.member.id,
     ).all(session)
+    
+    # Build list of board access, expanding board group access to individual boards
+    board_access_list: list[OrganizationBoardAccessRead] = []
+    seen_board_ids: set[UUID] = set()
+    
+    for row in access_rows:
+        if row.board_id is not None:
+            # Direct board access
+            if row.board_id not in seen_board_ids:
+                board_access_list.append(
+                    OrganizationBoardAccessRead.model_validate(row, from_attributes=True)
+                )
+                seen_board_ids.add(row.board_id)
+        elif row.board_group_id is not None:
+            # Board group access - expand to all boards in the group
+            group_boards = await Board.objects.filter_by(
+                board_group_id=row.board_group_id,
+            ).all(session)
+            for board in group_boards:
+                if board.id not in seen_board_ids:
+                    # Create a synthetic access entry for this board
+                    board_access_list.append(
+                        OrganizationBoardAccessRead(
+                            id=row.id,  # Use the group access row's ID
+                            organization_member_id=row.organization_member_id,
+                            board_id=board.id,
+                            board_group_id=row.board_group_id,
+                            can_read=row.can_read,
+                            can_write=row.can_write,
+                            created_at=row.created_at,
+                            updated_at=row.updated_at,
+                        )
+                    )
+                    seen_board_ids.add(board.id)
+    
     model = _member_to_read(ctx.member, user)
     model.organization_name = ctx.organization.name
-    model.board_access = [
-        OrganizationBoardAccessRead.model_validate(row, from_attributes=True) for row in access_rows
-    ]
+    model.board_access = board_access_list
     return model
 
 
