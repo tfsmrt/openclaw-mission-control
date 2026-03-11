@@ -104,3 +104,28 @@ class BoardRead(BoardBase):
     organization_id: UUID
     created_at: datetime
     updated_at: datetime
+
+
+class BoardMemberUser(SQLModel):
+    """Embedded user fields for board member payloads."""
+
+    id: UUID
+    email: str | None = None
+    name: str | None = None
+
+
+class BoardMemberRead(SQLModel):
+    """Board member with effective access permissions for a specific board."""
+
+    id: UUID
+    organization_id: UUID
+    user_id: UUID
+    role: str
+    all_boards_read: bool
+    all_boards_write: bool
+    # Effective access for this specific board (from direct access, group access, or org-wide)
+    can_read: bool
+    can_write: bool
+    created_at: datetime
+    updated_at: datetime
+    user: BoardMemberUser | None = None

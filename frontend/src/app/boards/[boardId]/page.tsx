@@ -3373,10 +3373,13 @@ export default function BoardDetailPage() {
                       <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-quiet">
                         Humans
                       </p>
-                      {orgMembers.map((member) => {
+                      {orgMembers.map((member: any) => {
                         const isSelected = selectedFilter?.type === "human" && selectedFilter.id === member.user_id;
                         const name = member.user?.name ?? member.user?.email ?? "Unknown";
                         const initials = name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
+                        // Use effective access from API (can_read/can_write) if available
+                        const hasWrite = member.can_write ?? member.all_boards_write;
+                        const accessLabel = hasWrite ? "read-write" : "read-only";
                         return (
                           <button
                             key={member.user_id}
@@ -3398,7 +3401,7 @@ export default function BoardDetailPage() {
                               <p className="truncate text-sm font-medium text-strong">
                                 {name}
                               </p>
-                              <p className="text-[11px] text-quiet capitalize">{member.role}</p>
+                              <p className="text-[11px] text-quiet">{accessLabel}</p>
                             </div>
                           </button>
                         );

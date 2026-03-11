@@ -28,8 +28,8 @@ import type {
   BoardUpdate,
   GetBoardGroupSnapshotApiV1BoardsBoardIdGroupSnapshotGetParams,
   HTTPValidationError,
+  LimitOffsetPageTypeVarCustomizedBoardMemberRead,
   LimitOffsetPageTypeVarCustomizedBoardRead,
-  LimitOffsetPageTypeVarCustomizedOrganizationMemberRead,
   ListBoardMembersApiV1BoardsBoardIdMembersGetParams,
   ListBoardsApiV1BoardsGetParams,
   OkResponse,
@@ -809,10 +809,12 @@ Includes:
 - Members with all_boards_read or all_boards_write
 - Members with direct board access
 - Members with access to the board's group (if board is in a group)
+
+Returns effective can_read/can_write for each member on THIS board.
  * @summary List Board Members
  */
 export type listBoardMembersApiV1BoardsBoardIdMembersGetResponse200 = {
-  data: LimitOffsetPageTypeVarCustomizedOrganizationMemberRead;
+  data: LimitOffsetPageTypeVarCustomizedBoardMemberRead;
   status: 200;
 };
 

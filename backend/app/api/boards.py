@@ -28,7 +28,7 @@ from app.models.agents import Agent
 from app.models.board_groups import BoardGroup
 from app.models.boards import Board
 from app.models.gateways import Gateway
-from app.schemas.boards import BoardCreate, BoardRead, BoardUpdate
+from app.schemas.boards import BoardCreate, BoardMemberRead, BoardRead, BoardUpdate
 from app.schemas.common import OkResponse
 from app.schemas.pagination import DefaultLimitOffsetPage
 from app.schemas.view_models import BoardGroupSnapshot, BoardSnapshot
@@ -609,23 +609,25 @@ def get_board(
     return board
 
 
-@router.get("/{board_id}/members", response_model=DefaultLimitOffsetPage[OrganizationMemberRead])
+@router.get("/{board_id}/members", response_model=DefaultLimitOffsetPage[BoardMemberRead])
 async def list_board_members(
     board: Board = BOARD_USER_READ_DEP,
     session: AsyncSession = SESSION_DEP,
     ctx: OrganizationContext = Depends(require_org_member),
-) -> LimitOffsetPage[OrganizationMemberRead]:
+) -> LimitOffsetPage[BoardMemberRead]:
     """List organization members who have access to this board.
     
     Includes:
     - Members with all_boards_read or all_boards_write
     - Members with direct board access
     - Members with access to the board's group (if board is in a group)
+    
+    Returns effective can_read/can_write for each member on THIS board.
     """
     from app.models.organization_board_access import OrganizationBoardAccess
     from app.models.organization_members import OrganizationMember
     from app.models.users import User
-    from app.schemas.organizations import OrganizationMemberRead
+    from app.schemas.boards import BoardMemberRead, BoardMemberUser
     
     # Build subquery for members with specific board/group access
     if board.board_group_id:
@@ -659,12 +661,60 @@ async def list_board_members(
         )
         .order_by(func.lower(col(User.email)).asc(), col(User.name).asc())
     )
+    
+    # Pre-load access records for all members to calculate effective permissions
+    access_records = await session.exec(
+        select(OrganizationBoardAccess)
+        .where(access_condition)
+    )
+    access_by_member: dict[str, OrganizationBoardAccess] = {}
+    for rec in access_records:
+        member_id = str(rec.organization_member_id)
+        existing = access_by_member.get(member_id)
+        # Prefer direct board access over group access, and write over read
+        if existing is None:
+            access_by_member[member_id] = rec
+        elif rec.board_id is not None and existing.board_id is None:
+            # Direct board access takes precedence
+            access_by_member[member_id] = rec
+        elif rec.can_write and not existing.can_write:
+            # Write access takes precedence
+            access_by_member[member_id] = rec
 
     def _transform(items: Sequence[Any]) -> Sequence[Any]:
-        from app.api.organizations import _member_to_read
-        output: list[OrganizationMemberRead] = []
+        output: list[BoardMemberRead] = []
         for member, user in items:
-            output.append(_member_to_read(member, user))
+            # Calculate effective permissions
+            can_read = member.all_boards_read or member.all_boards_write
+            can_write = member.all_boards_write
+            
+            # Check specific board/group access
+            access = access_by_member.get(str(member.id))
+            if access is not None:
+                can_read = can_read or access.can_read or access.can_write
+                can_write = can_write or access.can_write
+            
+            user_read = None
+            if user is not None:
+                user_read = BoardMemberUser(
+                    id=user.id,
+                    email=user.email,
+                    name=user.name,
+                )
+            
+            output.append(BoardMemberRead(
+                id=member.id,
+                organization_id=member.organization_id,
+                user_id=member.user_id,
+                role=member.role,
+                all_boards_read=member.all_boards_read,
+                all_boards_write=member.all_boards_write,
+                can_read=can_read,
+                can_write=can_write,
+                created_at=member.created_at,
+                updated_at=member.updated_at,
+                user=user_read,
+            ))
         return output
 
     return await paginate(session, statement, transformer=_transform)
