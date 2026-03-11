@@ -16,11 +16,41 @@ from app.models.board_documents import (
     BoardDocumentRead,
     BoardDocumentUpdate,
 )
+from app.models.agents import Agent
 from app.db import crud
 from app.db.pagination import paginate
 from app.schemas.pagination import DefaultLimitOffsetPage
 
 router = APIRouter(prefix="/boards/{board_id}/documents", tags=["board-documents"])
+
+
+async def _refresh_agent_context_for_board(
+    session: AsyncSession,
+    board_id: UUID,
+) -> None:
+    """Queue agent context refresh for all agents on a board.
+    
+    When board documents change, all agents on that board need updated TOOLS.md.
+    """
+    from app.services.openclaw.lifecycle_queue import EnqueueLifecycleTask
+    
+    # Find all agents on this board
+    agents = await session.exec(
+        select(Agent).where(col(Agent.board_id) == board_id)
+    )
+    
+    # Queue context refresh for each agent
+    for agent in agents.all():
+        if agent.openclaw_session_id:
+            try:
+                await EnqueueLifecycleTask(session).enqueue(
+                    agent_id=agent.id,
+                    action="update",
+                    delay_seconds=5,  # Small delay to batch multiple changes
+                )
+            except Exception:
+                # Log but don't fail the document operation
+                pass
 
 
 @router.get("", response_model=DefaultLimitOffsetPage[BoardDocumentRead])
@@ -43,7 +73,10 @@ async def create_board_document(
     payload: BoardDocumentCreate,
     session: AsyncSession = SESSION_DEP,
 ) -> BoardDocumentRead:
-    """Create a new document for a board."""
+    """Create a new document for a board.
+    
+    Automatically refreshes TOOLS.md for all agents on this board.
+    """
     doc = BoardDocument(
         board_id=board_id,
         title=payload.title,
@@ -54,6 +87,10 @@ async def create_board_document(
     session.add(doc)
     await session.commit()
     await session.refresh(doc)
+    
+    # Refresh agent context with new document
+    await _refresh_agent_context_for_board(session, board_id)
+    
     return BoardDocumentRead.model_validate(doc, from_attributes=True)
 
 
@@ -84,7 +121,10 @@ async def update_board_document(
     payload: BoardDocumentUpdate,
     session: AsyncSession = SESSION_DEP,
 ) -> BoardDocumentRead:
-    """Update a board document."""
+    """Update a board document.
+    
+    Automatically refreshes TOOLS.md for all agents on this board.
+    """
     doc = await session.exec(
         select(BoardDocument).where(
             col(BoardDocument.id) == doc_id,
@@ -108,6 +148,10 @@ async def update_board_document(
     session.add(doc)
     await session.commit()
     await session.refresh(doc)
+    
+    # Refresh agent context with updated document
+    await _refresh_agent_context_for_board(session, board_id)
+    
     return BoardDocumentRead.model_validate(doc, from_attributes=True)
 
 
@@ -117,7 +161,10 @@ async def delete_board_document(
     doc_id: UUID,
     session: AsyncSession = SESSION_DEP,
 ) -> None:
-    """Delete a board document."""
+    """Delete a board document.
+    
+    Automatically refreshes TOOLS.md for all agents on this board.
+    """
     await crud.delete_where(
         session,
         BoardDocument,
@@ -125,3 +172,6 @@ async def delete_board_document(
         col(BoardDocument.board_id) == board_id,
         commit=True,
     )
+    
+    # Refresh agent context after document deletion
+    await _refresh_agent_context_for_board(session, board_id)
