@@ -273,7 +273,8 @@ export default function BoardGroupDetailPage() {
     if (groupAgent?.id) seen.add(groupAgent.id);
     const result: typeof allAgents = [];
     for (const agent of allAgents) {
-      if (agent.board_id && boardIdSet.has(agent.board_id) && !seen.has(agent.id)) {
+      // Only show board lead agents (not workers)
+      if (agent.board_id && boardIdSet.has(agent.board_id) && agent.is_board_lead && !seen.has(agent.id)) {
         seen.add(agent.id);
         result.push(agent);
       }
@@ -1107,7 +1108,7 @@ export default function BoardGroupDetailPage() {
                           Humans
                         </p>
                         {orgMembers.map((m: any) => {
-                          const name = m.user?.name ?? m.user?.email ?? "Unknown";
+                          const name = m.name ?? m.user?.name ?? m.user?.email ?? m.email ?? "Unknown";
                           const initials = name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
                           const hasWrite = m.can_write ?? m.all_boards_write;
                           const accessLabel = hasWrite ? "read-write" : "read-only";
