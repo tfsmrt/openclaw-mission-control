@@ -1130,7 +1130,7 @@ export default function BoardGroupDetailPage() {
             {/* Main content — kanban or inner boards */}
             {!showInnerBoards ? (
               /* ── Kanban view ── */
-              <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
+              <div className="min-w-0 flex-1 min-h-0 h-full flex flex-col overflow-hidden">
                 {groupTasksError && (
                   <p className="shrink-0 mb-3 text-xs text-danger">{groupTasksError}</p>
                 )}
@@ -1139,14 +1139,12 @@ export default function BoardGroupDetailPage() {
                     Loading group tasks…
                   </div>
                 ) : (
-                  <div className="flex-1 min-h-0 h-full overflow-hidden">
-                    <TaskBoard
-                      tasks={taskBoardTasks}
-                      onTaskMove={canManageHeartbeat ? handleGroupTaskMove : undefined}
-                      onTaskSelect={openTaskDetail}
-                      readOnly={!canManageHeartbeat}
-                    />
-                  </div>
+                  <TaskBoard
+                    tasks={taskBoardTasks}
+                    onTaskMove={canManageHeartbeat ? handleGroupTaskMove : undefined}
+                    onTaskSelect={openTaskDetail}
+                    readOnly={!canManageHeartbeat}
+                  />
                 )}
               </div>
             ) : (
