@@ -54,6 +54,7 @@ const STREAM_CONNECT_SPACING_MS = 120;
 const MAX_FEED_ITEMS = 300;
 const PAGED_LIMIT = 50;
 const PAGED_MAX = 300;
+const INITIAL_FETCH = 20;   // fetch only this many activity items on first load
 const INITIAL_VISIBLE = 20;
 const LOAD_MORE_STEP = 20;
 
@@ -642,87 +643,77 @@ export default function ActivityPage() {
 
     const loadInitial = async () => {
       try {
-        const nextBoards: BoardRead[] = [];
-        for (let offset = 0; offset < PAGED_MAX; offset += PAGED_LIMIT) {
-          const result = await listBoardsApiV1BoardsGet({
-            limit: PAGED_LIMIT,
-            offset,
-          });
-          if (cancelled) return;
-          if (result.status !== 200) {
-            throw new Error("Unable to load boards.");
-          }
-          const items = result.data.items ?? [];
-          nextBoards.push(...items);
-          if (items.length < PAGED_LIMIT) {
-            break;
-          }
-        }
-
+        // ── Phase 1: fetch recent activity immediately and show it ──
+        const activityResult = await listActivityApiV1ActivityGet({ limit: INITIAL_FETCH, offset: 0 });
         if (cancelled) return;
-        setBoards(nextBoards);
-        boardsByIdRef.current = new Map(
-          nextBoards.map((board) => [board.id, board]),
-        );
+        if (activityResult.status !== 200) throw new Error("Unable to load activity feed.");
 
         const seeded: FeedItem[] = [];
         const seedSeen = new Set<string>();
 
-        // Snapshot seeding gives org-level approvals/agents/chat and task metadata.
-        const snapshotResults = await Promise.allSettled(
-          nextBoards.map((board) =>
-            getBoardSnapshotApiV1BoardsBoardIdSnapshotGet(board.id),
-          ),
-        );
+        for (const event of activityResult.data.items ?? []) {
+          const mapped = mapTaskActivity(event);
+          if (!mapped || seedSeen.has(mapped.id)) continue;
+          seedSeen.add(mapped.id);
+          seeded.push(mapped);
+        }
+
+        seeded.sort((a, b) => (apiDatetimeToMs(b.created_at) ?? 0) - (apiDatetimeToMs(a.created_at) ?? 0));
         if (cancelled) return;
+        setFeedItems(seeded);
+        seenIdsRef.current = new Set(seeded.map((i) => i.id));
+        setIsFeedLoading(false); // ← show the first batch immediately
 
-        snapshotResults.forEach((result, index) => {
-          if (result.status !== "fulfilled") return;
-          if (result.value.status !== 200) return;
-          const board = nextBoards[index];
-          const snapshot = result.value.data;
-
-          (snapshot.tasks ?? []).forEach((task) => {
-            taskMetaByIdRef.current.set(task.id, {
-              title: task.title,
-              boardId: board.id,
-            });
-          });
-
-          (snapshot.agents ?? []).forEach((agent) => {
-            const normalized = normalizeAgent(agent);
-            agentsByIdRef.current.set(normalized.id, normalized);
-            const agentItem = mapAgentEvent(normalized, null, true);
-            if (!agentItem || seedSeen.has(agentItem.id)) return;
-            seedSeen.add(agentItem.id);
-            seeded.push(agentItem);
-          });
-
-          (snapshot.approvals ?? []).forEach((approval) => {
-            approvalsByIdRef.current.set(approval.id, approval);
-            const approvalItem = mapApprovalEvent(approval, board.id, null);
-            if (seedSeen.has(approvalItem.id)) return;
-            seedSeen.add(approvalItem.id);
-            seeded.push(approvalItem);
-          });
-
-          (snapshot.chat_messages ?? []).forEach((memory) => {
-            const chatItem = mapBoardChat(memory, board.id);
-            if (seedSeen.has(chatItem.id)) return;
-            seedSeen.add(chatItem.id);
-            seeded.push(chatItem);
-          });
-        });
-
+        // ── Phase 2: load boards + snapshots in the background ──
+        const nextBoards: BoardRead[] = [];
         for (let offset = 0; offset < PAGED_MAX; offset += PAGED_LIMIT) {
-          const result = await listActivityApiV1ActivityGet({
-            limit: PAGED_LIMIT,
-            offset,
-          });
+          const result = await listBoardsApiV1BoardsGet({ limit: PAGED_LIMIT, offset });
           if (cancelled) return;
-          if (result.status !== 200) {
-            throw new Error("Unable to load activity feed.");
-          }
+          if (result.status !== 200) break;
+          const items = result.data.items ?? [];
+          nextBoards.push(...items);
+          if (items.length < PAGED_LIMIT) break;
+        }
+        if (cancelled) return;
+        setBoards(nextBoards);
+        boardsByIdRef.current = new Map(nextBoards.map((b) => [b.id, b]));
+
+        // Load snapshots one board at a time to avoid a thundering herd
+        for (const board of nextBoards) {
+          if (cancelled) return;
+          try {
+            const snap = await getBoardSnapshotApiV1BoardsBoardIdSnapshotGet(board.id);
+            if (cancelled || snap.status !== 200) continue;
+            const snapshot = snap.data;
+            (snapshot.tasks ?? []).forEach((task) => {
+              taskMetaByIdRef.current.set(task.id, { title: task.title, boardId: board.id });
+            });
+            (snapshot.agents ?? []).forEach((agent) => {
+              const normalized = normalizeAgent(agent);
+              agentsByIdRef.current.set(normalized.id, normalized);
+            });
+            (snapshot.approvals ?? []).forEach((approval) => {
+              approvalsByIdRef.current.set(approval.id, approval);
+              if (!seedSeen.has(approval.id)) {
+                seedSeen.add(approval.id);
+                seeded.push(mapApprovalEvent(approval, board.id, null));
+              }
+            });
+            (snapshot.chat_messages ?? []).forEach((memory) => {
+              const chatItem = mapBoardChat(memory, board.id);
+              if (!seedSeen.has(chatItem.id)) {
+                seedSeen.add(chatItem.id);
+                seeded.push(chatItem);
+              }
+            });
+          } catch { /* skip failed boards */ }
+        }
+
+        // ── Phase 3: load more activity items beyond the first batch ──
+        for (let offset = INITIAL_FETCH; offset < PAGED_MAX; offset += PAGED_LIMIT) {
+          if (cancelled) return;
+          const result = await listActivityApiV1ActivityGet({ limit: PAGED_LIMIT, offset });
+          if (result.status !== 200) break;
           const items = result.data.items ?? [];
           for (const event of items) {
             const mapped = mapTaskActivity(event);
@@ -730,27 +721,17 @@ export default function ActivityPage() {
             seedSeen.add(mapped.id);
             seeded.push(mapped);
           }
-          if (items.length < PAGED_LIMIT) {
-            break;
-          }
+          if (items.length < PAGED_LIMIT) break;
         }
 
-        seeded.sort((a, b) => {
-          const aTime = apiDatetimeToMs(a.created_at) ?? 0;
-          const bTime = apiDatetimeToMs(b.created_at) ?? 0;
-          return bTime - aTime;
-        });
-        const next = seeded.slice(0, MAX_FEED_ITEMS);
         if (cancelled) return;
+        seeded.sort((a, b) => (apiDatetimeToMs(b.created_at) ?? 0) - (apiDatetimeToMs(a.created_at) ?? 0));
+        const next = seeded.slice(0, MAX_FEED_ITEMS);
         setFeedItems(next);
         seenIdsRef.current = new Set(next.map((item) => item.id));
       } catch (err) {
         if (cancelled) return;
-        setFeedError(
-          err instanceof Error ? err.message : "Unable to load activity feed.",
-        );
-      } finally {
-        if (cancelled) return;
+        setFeedError(err instanceof Error ? err.message : "Unable to load activity feed.");
         setIsFeedLoading(false);
       }
     };
