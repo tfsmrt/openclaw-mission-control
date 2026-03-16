@@ -797,10 +797,7 @@ export default function BoardGroupDetailPage() {
             <div className="px-8 py-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-quiet">
-                    Board group
-                  </p>
-                  <h1 className="mt-2 text-2xl font-semibold tracking-tight text-strong">
+                  <h1 className="text-2xl font-semibold tracking-tight text-strong">
                     {group?.name ?? "Group"}
                   </h1>
                   {group?.description ? (
