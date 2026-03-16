@@ -31,11 +31,18 @@ jq -r '
 ```
 
 ## Pre-Flight Checks (Every Heartbeat)
-1) Confirm `BASE_URL`, `AUTH_TOKEN`, and `GROUP_ID` from `TOOLS.md`.
+1) ALWAYS re-read `AUTH_TOKEN` from `TOOLS.md` at the start of every session — never use a hardcoded token:
+```bash
+AUTH_TOKEN=$(grep 'AUTH_TOKEN=' /root/.openclaw/workspace/workspace-group-lead-{{ group_id }}/TOOLS.md | cut -d= -f2)
+```
 2) Verify API access:
-   - `GET {{ base_url }}/healthz`
-   - `GET {{ base_url }}/api/v1/board-groups/{{ group_id }}/tasks`
-3) If any check fails, stop and retry next heartbeat.
+```bash
+curl -fsS "{{ base_url }}/healthz" && \
+curl -fsS -o /dev/null "{{ base_url }}/api/v1/board-groups/{{ group_id }}/tasks" \
+  -H "X-Agent-Token: $AUTH_TOKEN"
+```
+3) If healthz passes but tasks returns 401 — token is stale. Re-read TOOLS.md (step 1) and retry once.
+4) If still failing after retry, stop and wait for next heartbeat.
 
 ## Group Lead Loop
 

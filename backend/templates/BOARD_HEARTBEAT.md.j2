@@ -136,12 +136,17 @@ jq -r '
 - If pre-flight fails due to 5xx/network, do not write memory or task updates.
 
 ## Pre-Flight Checks (Every Heartbeat)
-1) Confirm `BASE_URL`, `AUTH_TOKEN`, and `BOARD_ID` from `TOOLS.md` match this workspace.
+1) ALWAYS re-read `AUTH_TOKEN` from `TOOLS.md` at the start — never rely on a hardcoded token:
+```bash
+AUTH_TOKEN=$(grep 'AUTH_TOKEN=' "$WORKSPACE_PATH/TOOLS.md" | cut -d= -f2 | tr -d '`')
+```
 2) Verify API access:
-- `GET {{ base_url }}/healthz`
-- `GET {{ base_url }}/api/v1/agent/boards`
-- `GET {{ base_url }}/api/v1/agent/boards/{{ board_id }}/tasks`
-3) If any check fails, stop and retry next heartbeat.
+```bash
+curl -fsS "{{ base_url }}/healthz"
+curl -fsS -o /dev/null "{{ base_url }}/api/v1/agent/boards" -H "X-Agent-Token: $AUTH_TOKEN"
+```
+3) If healthz passes but boards returns 401 — token is stale. Re-read TOOLS.md (step 1) and retry once.
+4) If still failing after retry, stop and wait for next heartbeat.
 
 ## Signal Working Status
 Before doing real work, set status to `working`:
