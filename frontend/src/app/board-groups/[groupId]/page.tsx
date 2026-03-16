@@ -1349,38 +1349,35 @@ export default function BoardGroupDetailPage() {
                   <div ref={commentsEndRef} />
                 </div>
               )}
-              {commentError && (
-                <p className="text-xs text-danger">{commentError}</p>
-              )}
             </div>
           </div>
 
-          {/* Footer: comment composer */}
+          {/* Footer: comment composer with @mention support */}
           <div className="shrink-0 border-t border-[color:var(--border)] px-6 py-4">
-            <div className="flex items-end gap-2">
-              <textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add a comment…"
-                rows={2}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void handlePostComment();
-                  }
-                }}
-                className="flex-1 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--border-strong)] focus:outline-none resize-none"
-              />
-              <button
-                type="button"
-                onClick={() => void handlePostComment()}
-                disabled={isPostingComment || !newComment.trim()}
-                className="shrink-0 rounded-lg bg-[color:var(--accent)] p-2.5 text-white transition hover:opacity-90 disabled:opacity-50"
-                title="Send comment"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </div>
+            <BoardChatComposer
+              placeholder="Add a comment… Tag the agent with @lead"
+              isSending={isPostingComment}
+              disabled={!isSignedIn || !selectedGroupTask}
+              mentionSuggestions={groupMentionSuggestions}
+              onSend={async (content) => {
+                if (!groupId || !selectedGroupTask) return false;
+                setIsPostingComment(true);
+                setCommentError(null);
+                try {
+                  await createGroupTaskComment(groupId, selectedGroupTask.id, content);
+                  await fetchTaskComments(selectedGroupTask.id);
+                  return true;
+                } catch (err) {
+                  setCommentError(err instanceof Error ? err.message : "Failed to post comment.");
+                  return false;
+                } finally {
+                  setIsPostingComment(false);
+                }
+              }}
+            />
+            {commentError && (
+              <p className="mt-1 text-xs text-danger">{commentError}</p>
+            )}
           </div>
         </div>
       </aside>
