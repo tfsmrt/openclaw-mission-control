@@ -489,13 +489,11 @@ async def create_board_group_memory(
     group_id: UUID,
     payload: BoardGroupMemoryCreate,
     session: AsyncSession = SESSION_DEP,
-    ctx: OrganizationContext = ORG_MEMBER_DEP,
+    actor: ActorContext = ACTOR_DEP,
 ) -> BoardGroupMemory:
     """Create a board-group memory entry and notify chat recipients."""
-    group = await _require_group_access(session, group_id=group_id, ctx=ctx, write=True)
-
-    user = await User.objects.by_id(ctx.member.user_id).first(session)
-    actor = ActorContext(actor_type="user", user=user)
+    from app.api.board_groups import _require_group_access_for_actor
+    group = await _require_group_access_for_actor(session, group_id=group_id, actor=actor, write=True)
     tags = set(payload.tags or [])
     is_chat = "chat" in tags
     mentions = extract_mentions(payload.content)
