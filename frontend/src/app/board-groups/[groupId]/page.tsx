@@ -41,6 +41,7 @@ import {
   listGroupTasks,
   createGroupTask,
   updateGroupTask,
+  deleteGroupTask,
 } from "@/lib/groupTasks";
 import { TaskBoard, type TaskStatus } from "@/components/organisms/TaskBoard";
 import { Markdown } from "@/components/atoms/Markdown";
@@ -650,6 +651,71 @@ export default function BoardGroupDetailPage() {
     [groupId, isSignedIn, fetchGroupTasks],
   );
 
+  // Task detail drawer state
+  const [selectedGroupTask, setSelectedGroupTask] = useState<GroupTask | null>(null);
+  const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
+  const [editTaskTitle, setEditTaskTitle] = useState("");
+  const [editTaskDescription, setEditTaskDescription] = useState("");
+  const [editTaskStatus, setEditTaskStatus] = useState<TaskStatus>("inbox");
+  const [editTaskPriority, setEditTaskPriority] = useState("medium");
+  const [isSavingTask, setIsSavingTask] = useState(false);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [taskDetailError, setTaskDetailError] = useState<string | null>(null);
+
+  const openTaskDetail = useCallback((task: Task) => {
+    const full = groupTasks.find((t) => t.id === task.id);
+    if (!full) return;
+    setSelectedGroupTask(full);
+    setEditTaskTitle(full.title);
+    setEditTaskDescription(full.description ?? "");
+    setEditTaskStatus(full.status as TaskStatus);
+    setEditTaskPriority(full.priority ?? "medium");
+    setTaskDetailError(null);
+    setIsTaskDetailOpen(true);
+  }, [groupTasks]);
+
+  const closeTaskDetail = useCallback(() => {
+    setIsTaskDetailOpen(false);
+    setSelectedGroupTask(null);
+    setTaskDetailError(null);
+  }, []);
+
+  const handleSaveTask = useCallback(async () => {
+    if (!groupId || !isSignedIn || !selectedGroupTask) return;
+    setIsSavingTask(true);
+    setTaskDetailError(null);
+    try {
+      await updateGroupTask(groupId, selectedGroupTask.id, {
+        title: editTaskTitle,
+        description: editTaskDescription || null,
+        status: editTaskStatus,
+        priority: editTaskPriority,
+      });
+      await fetchGroupTasks();
+      closeTaskDetail();
+    } catch (err) {
+      setTaskDetailError(err instanceof Error ? err.message : "Failed to save task.");
+    } finally {
+      setIsSavingTask(false);
+    }
+  }, [groupId, isSignedIn, selectedGroupTask, editTaskTitle, editTaskDescription, editTaskStatus, editTaskPriority, fetchGroupTasks, closeTaskDetail]);
+
+  const handleDeleteTask = useCallback(async () => {
+    if (!groupId || !isSignedIn || !selectedGroupTask) return;
+    if (!confirm("Delete this task?")) return;
+    setIsDeletingTask(true);
+    setTaskDetailError(null);
+    try {
+      await deleteGroupTask(groupId, selectedGroupTask.id);
+      await fetchGroupTasks();
+      closeTaskDetail();
+    } catch (err) {
+      setTaskDetailError(err instanceof Error ? err.message : "Failed to delete task.");
+    } finally {
+      setIsDeletingTask(false);
+    }
+  }, [groupId, isSignedIn, selectedGroupTask, fetchGroupTasks, closeTaskDetail]);
+
   const taskBoardTasks = useMemo(
     () => groupTasks.map(toTaskBoardTask),
     [groupTasks],
@@ -836,7 +902,7 @@ export default function BoardGroupDetailPage() {
                     <TaskBoard
                       tasks={taskBoardTasks}
                       onTaskMove={canManageHeartbeat ? handleGroupTaskMove : undefined}
-                      onTaskSelect={() => {}}
+                      onTaskSelect={openTaskDetail}
                       readOnly={!canManageHeartbeat}
                     />
                   </div>
@@ -1023,6 +1089,105 @@ export default function BoardGroupDetailPage() {
                   >
                     {isCreatingGroupTask ? "Saving…" : "Save"}
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Task Detail Drawer */}
+          {isTaskDetailOpen && selectedGroupTask && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={closeTaskDetail}>
+              <div
+                className="w-full max-w-lg rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-[color:var(--border)] px-6 py-4">
+                  <p className="text-sm font-semibold text-strong">Task Details</p>
+                  <button
+                    type="button"
+                    onClick={closeTaskDetail}
+                    className="rounded-lg border border-[color:var(--border)] p-1.5 text-quiet transition hover:bg-[color:var(--surface-muted)]"
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="space-y-4 px-6 py-5">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-strong">Title</label>
+                    <input
+                      type="text"
+                      value={editTaskTitle}
+                      onChange={(e) => setEditTaskTitle(e.target.value)}
+                      className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--border-strong)] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-strong">Description</label>
+                    <textarea
+                      value={editTaskDescription}
+                      onChange={(e) => setEditTaskDescription(e.target.value)}
+                      rows={4}
+                      className="w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--border-strong)] focus:outline-none resize-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-strong">Status</label>
+                      <select
+                        value={editTaskStatus}
+                        onChange={(e) => setEditTaskStatus(e.target.value as TaskStatus)}
+                        className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-sm text-strong focus:outline-none"
+                      >
+                        {STATUS_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-strong">Priority</label>
+                      <select
+                        value={editTaskPriority}
+                        onChange={(e) => setEditTaskPriority(e.target.value)}
+                        className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-sm text-strong focus:outline-none"
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                      </select>
+                    </div>
+                  </div>
+                  {taskDetailError && (
+                    <p className="text-xs text-danger">{taskDetailError}</p>
+                  )}
+                </div>
+                <div className="flex items-center justify-between border-t border-[color:var(--border)] px-6 py-4">
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteTask()}
+                    disabled={isDeletingTask}
+                    className="rounded-lg border border-[color:var(--danger-border)] px-3 py-1.5 text-xs font-semibold text-danger transition hover:bg-[color:var(--danger-soft)] disabled:opacity-50"
+                  >
+                    {isDeletingTask ? "Deleting…" : "Delete"}
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={closeTaskDetail}
+                      className="rounded-lg border border-[color:var(--border)] px-3 py-1.5 text-xs font-semibold text-muted transition hover:bg-[color:var(--surface-muted)]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleSaveTask()}
+                      disabled={isSavingTask || !editTaskTitle.trim()}
+                      className="rounded-lg bg-[color:var(--accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                    >
+                      {isSavingTask ? "Saving…" : "Save"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
