@@ -184,13 +184,13 @@ async def get_board_group_snapshot(
     include_done: bool = False,
     per_board_task_limit: int = 5,
     session: AsyncSession = SESSION_DEP,
-    ctx: OrganizationContext = ORG_MEMBER_DEP,
+    actor: ActorContext = ACTOR_DEP,
 ) -> BoardGroupSnapshot:
     """Get a snapshot across boards in a group."""
-    group = await _require_group_access(
+    group = await _require_group_access_for_actor(
         session,
         group_id=group_id,
-        member=ctx.member,
+        actor=actor,
         write=False,
     )
     if per_board_task_limit < 0:
@@ -680,10 +680,10 @@ async def _get_group_task_or_404(
 async def list_group_tasks(
     group_id: UUID,
     session: AsyncSession = SESSION_DEP,
-    ctx: OrganizationContext = ORG_MEMBER_DEP,
+    actor: ActorContext = ACTOR_DEP,
 ) -> Any:
     """List tasks belonging directly to a board group (not scoped to any inner board)."""
-    await _require_group_access(session, group_id=group_id, member=ctx.member, write=False)
+    await _require_group_access_for_actor(session, group_id=group_id, actor=actor, write=False)
     statement = (
         select(Task)
         .where(col(Task.board_group_id) == group_id)
@@ -718,10 +718,10 @@ async def get_group_task(
     group_id: UUID,
     task_id: UUID,
     session: AsyncSession = SESSION_DEP,
-    ctx: OrganizationContext = ORG_MEMBER_DEP,
+    actor: ActorContext = ACTOR_DEP,
 ) -> Task:
     """Get a single group-level task."""
-    await _require_group_access(session, group_id=group_id, member=ctx.member, write=False)
+    await _require_group_access_for_actor(session, group_id=group_id, actor=actor, write=False)
     return await _get_group_task_or_404(session, task_id=task_id, group_id=group_id)
 
 
