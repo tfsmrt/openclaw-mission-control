@@ -165,7 +165,7 @@ export default function BoardGroupDetailPage() {
   const [chatMessages, setChatMessages] = useState<BoardGroupMemoryRead[]>([]);
   const [isChatSending, setIsChatSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
-  const [chatBroadcast, setChatBroadcast] = useState(true);
+  const [chatBroadcast, setChatBroadcast] = useState(false);
   const chatMessagesRef = useRef<BoardGroupMemoryRead[]>([]);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
