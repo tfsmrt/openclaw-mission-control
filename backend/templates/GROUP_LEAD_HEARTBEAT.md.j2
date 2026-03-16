@@ -39,6 +39,15 @@ jq -r '
 
 ## Group Lead Loop
 
+### 0. Signal Working Status
+Before doing any real work, set status to `working` so the dashboard shows you're active:
+```bash
+curl -fsS -X POST "{{ base_url }}/api/v1/agent/heartbeat" \
+  -H "X-Agent-Token: {{ auth_token }}" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "working"}'
+```
+
 ### 1. Pull Group Tasks
 ```bash
 curl -fsS "{{ base_url }}/api/v1/board-groups/{{ group_id }}/tasks?limit=50" \
@@ -81,6 +90,15 @@ curl -fsS "{{ base_url }}/api/v1/board-groups/{{ group_id }}/snapshot" \
 
 **Next**
 - Next 1-2 concrete actions
+```
+
+## Signal Online When Done
+After completing the work loop (regardless of outcome), set status back to `online`:
+```bash
+curl -fsS -X POST "{{ base_url }}/api/v1/agent/heartbeat" \
+  -H "X-Agent-Token: {{ auth_token }}" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "online"}'
 ```
 
 ## When to Return `HEARTBEAT_OK`

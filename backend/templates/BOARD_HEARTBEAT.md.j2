@@ -143,6 +143,22 @@ jq -r '
 - `GET {{ base_url }}/api/v1/agent/boards/{{ board_id }}/tasks`
 3) If any check fails, stop and retry next heartbeat.
 
+## Signal Working Status
+Before doing real work, set status to `working`:
+```bash
+curl -fsS -X POST "{{ base_url }}/api/v1/agent/heartbeat" \
+  -H "X-Agent-Token: {{ auth_token }}" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "working"}'
+```
+After completing the loop, set status back to `online`:
+```bash
+curl -fsS -X POST "{{ base_url }}/api/v1/agent/heartbeat" \
+  -H "X-Agent-Token: {{ auth_token }}" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "online"}'
+```
+
 ## Shared Context Pull
 Before execution:
 - Pull current task set (`inbox`, `in_progress`, `review` as relevant).

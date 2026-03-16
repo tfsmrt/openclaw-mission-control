@@ -4,6 +4,7 @@ type StatusDotVariant = "agent" | "approval" | "task";
 
 const AGENT_STATUS_DOT_CLASS_BY_STATUS: Record<string, string> = {
   online: "bg-emerald-500",
+  working: "bg-blue-500",
   busy: "bg-[color:var(--accent)]",
   provisioning: "bg-[color:var(--accent)]",
   updating: "bg-[color:var(--accent)]",
@@ -64,6 +65,24 @@ export function StatusDot({
   variant = "agent",
   className,
 }: StatusDotProps) {
+  const normalized = (status ?? "").trim().toLowerCase();
+  const isPulsing = variant === "agent" && normalized === "working";
+
+  if (isPulsing) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(
+          "relative inline-flex h-2.5 w-2.5 rounded-full",
+          className,
+        )}
+      >
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500" />
+      </span>
+    );
+  }
+
   return (
     <span
       aria-hidden="true"

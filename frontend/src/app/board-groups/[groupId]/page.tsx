@@ -825,12 +825,20 @@ export default function BoardGroupDetailPage() {
                   ) : groupAgent ? (
                     <span
                       className={cn(
-                        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+                        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold",
                         groupAgent.status === "online"
                           ? "border-emerald-200 bg-[color:var(--success-soft)] text-success"
-                          : "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-warning",
+                          : groupAgent.status === "working"
+                            ? "border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-700"
+                            : "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-warning",
                       )}
                     >
+                      {groupAgent.status === "working" && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+                        </span>
+                      )}
                       {groupAgent.status}
                     </span>
                   ) : (
