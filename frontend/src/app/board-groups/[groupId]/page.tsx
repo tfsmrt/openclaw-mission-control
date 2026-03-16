@@ -1020,13 +1020,10 @@ export default function BoardGroupDetailPage() {
           </div>
 
           {/* Content area */}
-          <div className="flex flex-col flex-1 min-h-0 overflow-hidden p-6 gap-4">
-            {/* Main toggleable content */}
-            {!showInnerBoards ? (
-              /* ── Kanban view (default) ── */
-              <div className="flex flex-1 min-h-0 gap-4 overflow-hidden">
-                {/* Team sidebar */}
-                <aside className="flex h-full w-60 flex-col rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm shrink-0">
+          <div className="relative flex flex-1 min-h-0 gap-4 p-6 overflow-hidden">
+            {/* Team sidebar — always visible, same level as content */}
+            {!showInnerBoards && (
+              <aside className="flex h-full w-60 flex-col rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm shrink-0">
                   {/* Header */}
                   <div className="flex items-center justify-between border-b border-[color:var(--border)] px-4 py-3">
                     <div>
@@ -1128,30 +1125,29 @@ export default function BoardGroupDetailPage() {
                     )}
                   </div>
                 </aside>
+            )}
 
-                {/* Kanban board */}
-                <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                  {/* Top bar: error */}
-                  {groupTasksError && (
-                    <p className="shrink-0 mb-3 text-xs text-danger">{groupTasksError}</p>
-                  )}
-
-                  {/* Kanban board — always render columns, even when empty */}
-                  {isGroupTasksLoading ? (
-                    <div className="flex-1 flex items-center justify-center text-sm text-muted">
-                      Loading group tasks…
-                    </div>
-                  ) : (
-                    <div className="flex-1 min-h-0 overflow-hidden">
-                      <TaskBoard
-                        tasks={taskBoardTasks}
-                        onTaskMove={canManageHeartbeat ? handleGroupTaskMove : undefined}
-                        onTaskSelect={openTaskDetail}
-                        readOnly={!canManageHeartbeat}
-                      />
-                    </div>
-                  )}
-                </div>
+            {/* Main content — kanban or inner boards */}
+            {!showInnerBoards ? (
+              /* ── Kanban view ── */
+              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                {groupTasksError && (
+                  <p className="shrink-0 mb-3 text-xs text-danger">{groupTasksError}</p>
+                )}
+                {isGroupTasksLoading ? (
+                  <div className="flex-1 flex items-center justify-center text-sm text-muted">
+                    Loading group tasks…
+                  </div>
+                ) : (
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <TaskBoard
+                      tasks={taskBoardTasks}
+                      onTaskMove={canManageHeartbeat ? handleGroupTaskMove : undefined}
+                      onTaskSelect={openTaskDetail}
+                      readOnly={!canManageHeartbeat}
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               /* ── Inner Boards view ── */
