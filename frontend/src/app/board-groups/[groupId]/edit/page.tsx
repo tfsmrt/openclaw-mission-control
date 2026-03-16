@@ -680,62 +680,7 @@ export default function EditBoardGroupPage() {
           ) : null}
         </div>
 
-        {isOrgAdmin && (
-          <div className="space-y-4 border-t border-[color:var(--border)] pt-6">
-            <div>
-              <p className="text-sm font-medium text-strong">Agent Check-in Rates</p>
-              <p className="mt-1 text-xs text-quiet">
-                Configure how often agents in this group wake up and report back.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {/* Worker rate */}
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-                <div className="mb-3">
-                  <p className="text-sm font-semibold text-strong">⚙️ Worker check-in rate</p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    How often worker agents wake up, pick up tasks, and report back.
-                  </p>
-                </div>
-                <PaceSelector
-                  amount={workerAmount}
-                  unit={workerUnit}
-                  every={workerHeartbeatEvery}
-                  disabled={isLoading || !baseGroup}
-                  isApplying={isWorkerApplying}
-                  error={workerApplyError}
-                  result={workerApplyResult}
-                  onAmountChange={setWorkerAmount}
-                  onUnitChange={setWorkerUnit}
-                  onApply={() => void applyWorkerHeartbeat()}
-                />
-              </div>
-
-              {/* Lead rate */}
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-                <div className="mb-3">
-                  <p className="text-sm font-semibold text-strong">👑 Lead check-in rate</p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    How often board leads review progress and coordinate across boards.
-                  </p>
-                </div>
-                <PaceSelector
-                  amount={leadAmount}
-                  unit={leadUnit}
-                  every={leadHeartbeatEvery}
-                  disabled={isLoading || !baseGroup}
-                  isApplying={isLeadApplying}
-                  error={leadApplyError}
-                  result={leadApplyResult}
-                  onAmountChange={setLeadAmount}
-                  onUnitChange={setLeadUnit}
-                  onApply={() => void applyLeadHeartbeat()}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Agent check-in rates have been moved to individual board settings */}
 
         {errorMessage ? (
           <p className="text-sm text-danger">{errorMessage}</p>
