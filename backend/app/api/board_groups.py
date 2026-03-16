@@ -11,6 +11,7 @@ from sqlalchemy import asc, func
 from sqlmodel import col, select
 
 from app.api.deps import ActorContext, require_user_or_agent, require_org_admin, require_org_member
+from app.core.config import settings
 from app.core.time import utcnow
 from app.db import crud
 from app.db.pagination import paginate
@@ -808,8 +809,8 @@ async def create_group_task_comment(
     session: AsyncSession = SESSION_DEP,
     actor: ActorContext = ACTOR_DEP,
 ) -> ActivityEvent:
-    """Create a comment on a group-level task."""
-    await _require_group_access_for_actor(session, group_id=group_id, actor=actor, write=True)
+    """Create a comment on a group-level task and notify the group agent when mentioned."""
+    group = await _require_group_access_for_actor(session, group_id=group_id, actor=actor, write=True)
     task = await _get_group_task_or_404(session, task_id=task_id, group_id=group_id)
     event = ActivityEvent(
         event_type="task.comment",
@@ -827,4 +828,50 @@ async def create_group_task_comment(
     session.add(event)
     await session.commit()
     await session.refresh(event)
+
+    # Notify the group agent if @lead or its name is mentioned (or it's the task assignee)
+    if group.group_agent_id is not None:
+        group_agent = await Agent.objects.by_id(group.group_agent_id).first(session)
+        if group_agent is not None and group_agent.openclaw_session_id:
+            # Skip if actor IS the group agent (no self-notify)
+            is_self = actor.actor_type == "agent" and actor.agent and actor.agent.id == group_agent.id
+            if not is_self:
+                from app.services.mentions import extract_mentions, matches_agent_mention
+                mentions = extract_mentions(payload.message)
+                should_notify = (
+                    "lead" in mentions
+                    or matches_agent_mention(group_agent, mentions)
+                    or bool(mentions)  # any mention in task comment = notify
+                )
+                if should_notify:
+                    from app.services.openclaw.gateway_dispatch import GatewayDispatchService
+                    dispatch = GatewayDispatchService(session)
+                    gateway = await Gateway.objects.by_id(group_agent.gateway_id).first(session)
+                    if gateway:
+                        from app.services.openclaw.gateway_rpc import GatewayConfig, send_message
+                        actor_name = (
+                            actor.user.name if actor.user else
+                            (actor.agent.name if actor.agent else "User")
+                        )
+                        base_url = settings.base_url or "http://localhost:8000"
+                        msg = (
+                            f"TASK COMMENT MENTION\n"
+                            f"Task: {task.title}\n"
+                            f"Task ID: {task.id}\n"
+                            f"From: {actor_name}\n\n"
+                            f"{payload.message}\n\n"
+                            f"Reply via task comment:\n"
+                            f"POST {base_url}/api/v1/board-groups/{group_id}/tasks/{task_id}/comments\n"
+                            f'Body: {{"message":"..."}}'
+                        )
+                        config = GatewayConfig(url=gateway.url, token=gateway.token)
+                        try:
+                            await send_message(
+                                msg,
+                                session_key=group_agent.openclaw_session_id,
+                                config=config,
+                            )
+                        except Exception:  # noqa: BLE001
+                            pass  # best-effort, don't fail the comment
+
     return event
