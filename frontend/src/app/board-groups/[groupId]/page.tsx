@@ -11,7 +11,9 @@ import {
   LayoutGrid,
   MessageSquare,
   NotebookText,
+  Pencil,
   Plus,
+  Send,
   Settings,
   X,
 } from "lucide-react";
@@ -38,13 +40,16 @@ import type {
 
 import {
   type GroupTask,
+  type TaskComment,
   listGroupTasks,
   createGroupTask,
   updateGroupTask,
   deleteGroupTask,
+  listGroupTaskComments,
+  createGroupTaskComment,
 } from "@/lib/groupTasks";
 import { TaskBoard, type TaskStatus } from "@/components/organisms/TaskBoard";
-import { Markdown } from "@/components/atoms/Markdown";
+import { CollapsibleMarkdown, Markdown } from "@/components/atoms/Markdown";
 import { SignedOutPanel } from "@/components/auth/SignedOutPanel";
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
@@ -661,6 +666,29 @@ export default function BoardGroupDetailPage() {
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [taskDetailError, setTaskDetailError] = useState<string | null>(null);
+  const [isEditingTaskTitle, setIsEditingTaskTitle] = useState(false);
+
+  // Task comments state
+  const [taskComments, setTaskComments] = useState<TaskComment[]>([]);
+  const [isCommentsLoading, setIsCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const commentsEndRef = useRef<HTMLDivElement | null>(null);
+
+  const fetchTaskComments = useCallback(async (taskId: string) => {
+    if (!groupId) return;
+    setIsCommentsLoading(true);
+    setCommentError(null);
+    try {
+      const comments = await listGroupTaskComments(groupId, taskId);
+      setTaskComments(comments);
+    } catch {
+      // Silently fail; comments are supplementary
+    } finally {
+      setIsCommentsLoading(false);
+    }
+  }, [groupId]);
 
   const openTaskDetail = useCallback((task: Task) => {
     const full = groupTasks.find((t) => t.id === task.id);
@@ -671,13 +699,22 @@ export default function BoardGroupDetailPage() {
     setEditTaskStatus(full.status as TaskStatus);
     setEditTaskPriority(full.priority ?? "medium");
     setTaskDetailError(null);
+    setIsEditingTaskTitle(false);
+    setTaskComments([]);
+    setNewComment("");
+    setCommentError(null);
     setIsTaskDetailOpen(true);
-  }, [groupTasks]);
+    void fetchTaskComments(full.id);
+  }, [groupTasks, fetchTaskComments]);
 
   const closeTaskDetail = useCallback(() => {
     setIsTaskDetailOpen(false);
     setSelectedGroupTask(null);
     setTaskDetailError(null);
+    setIsEditingTaskTitle(false);
+    setTaskComments([]);
+    setNewComment("");
+    setCommentError(null);
   }, []);
 
   const handleSaveTask = useCallback(async () => {
@@ -685,20 +722,39 @@ export default function BoardGroupDetailPage() {
     setIsSavingTask(true);
     setTaskDetailError(null);
     try {
-      await updateGroupTask(groupId, selectedGroupTask.id, {
+      const updated = await updateGroupTask(groupId, selectedGroupTask.id, {
         title: editTaskTitle,
         description: editTaskDescription || null,
         status: editTaskStatus,
         priority: editTaskPriority,
       });
+      setSelectedGroupTask(updated);
+      setIsEditingTaskTitle(false);
       await fetchGroupTasks();
-      closeTaskDetail();
     } catch (err) {
       setTaskDetailError(err instanceof Error ? err.message : "Failed to save task.");
     } finally {
       setIsSavingTask(false);
     }
-  }, [groupId, isSignedIn, selectedGroupTask, editTaskTitle, editTaskDescription, editTaskStatus, editTaskPriority, fetchGroupTasks, closeTaskDetail]);
+  }, [groupId, isSignedIn, selectedGroupTask, editTaskTitle, editTaskDescription, editTaskStatus, editTaskPriority, fetchGroupTasks]);
+
+  const handlePostComment = useCallback(async () => {
+    if (!groupId || !isSignedIn || !selectedGroupTask || !newComment.trim()) return;
+    setIsPostingComment(true);
+    setCommentError(null);
+    try {
+      await createGroupTaskComment(groupId, selectedGroupTask.id, newComment.trim());
+      setNewComment("");
+      await fetchTaskComments(selectedGroupTask.id);
+      setTimeout(() => {
+        commentsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      }, 50);
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : "Failed to post comment.");
+    } finally {
+      setIsPostingComment(false);
+    }
+  }, [groupId, isSignedIn, selectedGroupTask, newComment, fetchTaskComments]);
 
   const handleDeleteTask = useCallback(async () => {
     if (!groupId || !isSignedIn || !selectedGroupTask) return;
@@ -1102,106 +1158,232 @@ export default function BoardGroupDetailPage() {
             </div>
           )}
 
-          {/* Task Detail Drawer */}
-          {isTaskDetailOpen && selectedGroupTask && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={closeTaskDetail}>
-              <div
-                className="w-full max-w-lg rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between border-b border-[color:var(--border)] px-6 py-4">
-                  <p className="text-sm font-semibold text-strong">Task Details</p>
-                  <button
-                    type="button"
-                    onClick={closeTaskDetail}
-                    className="rounded-lg border border-[color:var(--border)] p-1.5 text-quiet transition hover:bg-[color:var(--surface-muted)]"
-                    aria-label="Close"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="space-y-4 px-6 py-5">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-strong">Title</label>
-                    <input
-                      type="text"
-                      value={editTaskTitle}
-                      onChange={(e) => setEditTaskTitle(e.target.value)}
-                      className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--border-strong)] focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-strong">Description</label>
-                    <textarea
-                      value={editTaskDescription}
-                      onChange={(e) => setEditTaskDescription(e.target.value)}
-                      rows={4}
-                      className="w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--border-strong)] focus:outline-none resize-none"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-strong">Status</label>
-                      <select
-                        value={editTaskStatus}
-                        onChange={(e) => setEditTaskStatus(e.target.value as TaskStatus)}
-                        className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-sm text-strong focus:outline-none"
-                      >
-                        {STATUS_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-strong">Priority</label>
-                      <select
-                        value={editTaskPriority}
-                        onChange={(e) => setEditTaskPriority(e.target.value)}
-                        className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-sm text-strong focus:outline-none"
-                      >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                        <option value="critical">Critical</option>
-                      </select>
-                    </div>
-                  </div>
-                  {taskDetailError && (
-                    <p className="text-xs text-danger">{taskDetailError}</p>
-                  )}
-                </div>
-                <div className="flex items-center justify-between border-t border-[color:var(--border)] px-6 py-4">
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteTask()}
-                    disabled={isDeletingTask}
-                    className="rounded-lg border border-[color:var(--danger-border)] px-3 py-1.5 text-xs font-semibold text-danger transition hover:bg-[color:var(--danger-soft)] disabled:opacity-50"
-                  >
-                    {isDeletingTask ? "Deleting…" : "Delete"}
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={closeTaskDetail}
-                      className="rounded-lg border border-[color:var(--border)] px-3 py-1.5 text-xs font-semibold text-muted transition hover:bg-[color:var(--surface-muted)]"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleSaveTask()}
-                      disabled={isSavingTask || !editTaskTitle.trim()}
-                      className="rounded-lg bg-[color:var(--accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                    >
-                      {isSavingTask ? "Saving…" : "Save"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+
         </main>
       </SignedIn>
+
+      {/* Task detail side panel backdrop */}
+      {isTaskDetailOpen ? (
+        <div
+          className="fixed inset-0 z-40 bg-black/30"
+          onClick={closeTaskDetail}
+        />
+      ) : null}
+
+      {/* Task detail side panel */}
+      <aside
+        className={cn(
+          "fixed right-0 top-0 z-50 h-full w-[max(620px,42vw)] max-w-[99vw] transform border-l border-[color:var(--border)] bg-[color:var(--surface)] shadow-2xl transition-transform",
+          isTaskDetailOpen ? "transform-none" : "translate-x-full",
+        )}
+      >
+        <div className="flex h-full flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-[color:var(--border)] px-6 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-quiet">Task Detail</p>
+              {isEditingTaskTitle ? (
+                <input
+                  type="text"
+                  value={editTaskTitle}
+                  onChange={(e) => setEditTaskTitle(e.target.value)}
+                  onBlur={() => void handleSaveTask()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleSaveTask();
+                    if (e.key === "Escape") {
+                      setEditTaskTitle(selectedGroupTask?.title ?? "");
+                      setIsEditingTaskTitle(false);
+                    }
+                  }}
+                  className="mt-1 w-full rounded-md border border-[color:var(--border-strong)] bg-[color:var(--surface-muted)] px-2 py-1 text-sm font-medium text-strong focus:outline-none"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
+                  autoFocus
+                />
+              ) : (
+                <p className="mt-1 truncate text-sm font-medium text-strong">
+                  {selectedGroupTask?.title ?? "Task"}
+                </p>
+              )}
+            </div>
+            <div className="ml-3 flex shrink-0 items-center gap-2">
+              {canManageHeartbeat && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingTaskTitle((v) => !v)}
+                  className="rounded-lg border border-[color:var(--border)] p-2 text-quiet transition hover:bg-[color:var(--surface-muted)]"
+                  title="Edit title"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={closeTaskDetail}
+                className="rounded-lg border border-[color:var(--border)] p-2 text-quiet transition hover:bg-[color:var(--surface-muted)]"
+                aria-label="Close task detail"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+            {/* Task ID */}
+            {selectedGroupTask && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-quiet">Task ID</span>
+                <span
+                  className="cursor-pointer select-all rounded bg-[color:var(--surface-strong)] px-2 py-0.5 font-mono text-xs text-quiet"
+                  title="Click to select"
+                >
+                  {selectedGroupTask.id}
+                </span>
+              </div>
+            )}
+
+            {/* Status + Priority */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-quiet">Status</p>
+                <select
+                  value={editTaskStatus}
+                  onChange={(e) => setEditTaskStatus(e.target.value as TaskStatus)}
+                  disabled={!canManageHeartbeat}
+                  className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-sm text-strong focus:outline-none disabled:opacity-60"
+                >
+                  {STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-quiet">Priority</p>
+                <select
+                  value={editTaskPriority}
+                  onChange={(e) => setEditTaskPriority(e.target.value)}
+                  disabled={!canManageHeartbeat}
+                  className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-sm text-strong focus:outline-none disabled:opacity-60"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-quiet">Description</p>
+              {canManageHeartbeat ? (
+                <textarea
+                  value={editTaskDescription}
+                  onChange={(e) => setEditTaskDescription(e.target.value)}
+                  rows={5}
+                  placeholder="No description…"
+                  className="w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--border-strong)] focus:outline-none resize-none"
+                />
+              ) : selectedGroupTask?.description ? (
+                <div className="prose prose-sm max-w-none dark:prose-invert text-[color:var(--text)]">
+                  <CollapsibleMarkdown content={selectedGroupTask.description} variant="description" />
+                </div>
+              ) : (
+                <p className="text-sm text-quiet">No description provided.</p>
+              )}
+            </div>
+
+            {/* Save / Delete actions */}
+            {canManageHeartbeat && (
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteTask()}
+                  disabled={isDeletingTask}
+                  className="rounded-lg border border-[color:var(--danger-border)] px-3 py-1.5 text-xs font-semibold text-danger transition hover:bg-[color:var(--danger-soft)] disabled:opacity-50"
+                >
+                  {isDeletingTask ? "Deleting…" : "Delete Task"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSaveTask()}
+                  disabled={isSavingTask || !editTaskTitle.trim()}
+                  className="rounded-lg bg-[color:var(--accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {isSavingTask ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            )}
+
+            {taskDetailError && (
+              <p className="text-xs text-danger">{taskDetailError}</p>
+            )}
+
+            {/* Comments */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-quiet">Comments</p>
+              {isCommentsLoading ? (
+                <p className="text-sm text-quiet">Loading comments…</p>
+              ) : taskComments.length === 0 ? (
+                <p className="text-sm text-quiet">No comments yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {taskComments.map((comment) => (
+                    <div
+                      key={comment.id}
+                      className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="text-xs font-semibold text-strong">
+                          {comment.author_name ?? (comment.agent_id ? "Agent" : "User")}
+                        </span>
+                        <span className="text-[10px] text-quiet">
+                          {new Date(comment.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-strong whitespace-pre-wrap break-words">
+                        {comment.message}
+                      </p>
+                    </div>
+                  ))}
+                  <div ref={commentsEndRef} />
+                </div>
+              )}
+              {commentError && (
+                <p className="text-xs text-danger">{commentError}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Footer: comment composer */}
+          <div className="shrink-0 border-t border-[color:var(--border)] px-6 py-4">
+            <div className="flex items-end gap-2">
+              <textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a comment…"
+                rows={2}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void handlePostComment();
+                  }
+                }}
+                className="flex-1 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--border-strong)] focus:outline-none resize-none"
+              />
+              <button
+                type="button"
+                onClick={() => void handlePostComment()}
+                disabled={isPostingComment || !newComment.trim()}
+                className="shrink-0 rounded-lg bg-[color:var(--accent)] p-2.5 text-white transition hover:opacity-90 disabled:opacity-50"
+                title="Send comment"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
 
       {/* Panel backdrops */}
       {isChatOpen || isNotesOpen ? (

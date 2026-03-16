@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import asc, func
 from sqlmodel import col, select
 
 from app.api.deps import ActorContext, require_user_or_agent, require_org_admin, require_org_member
@@ -15,6 +15,7 @@ from app.core.time import utcnow
 from app.db import crud
 from app.db.pagination import paginate
 from app.db.session import get_session
+from app.models.activity_events import ActivityEvent
 from app.models.agents import Agent
 from app.models.board_group_memory import BoardGroupMemory
 from app.models.board_groups import BoardGroup
@@ -30,7 +31,7 @@ from app.schemas.agents import AgentRead
 from app.schemas.board_groups import BoardGroupCreate, BoardGroupRead, BoardGroupUpdate
 from app.schemas.common import OkResponse
 from app.schemas.pagination import DefaultLimitOffsetPage
-from app.schemas.tasks import TaskCreate, TaskRead, TaskUpdate
+from app.schemas.tasks import TaskCommentCreate, TaskCommentRead, TaskCreate, TaskRead, TaskUpdate
 from app.schemas.view_models import BoardGroupSnapshot
 from app.services.board_group_snapshot import build_group_snapshot
 from app.services.openclaw.constants import DEFAULT_HEARTBEAT_CONFIG
@@ -770,3 +771,60 @@ async def delete_group_task(
     await session.delete(task)
     await session.commit()
     return OkResponse()
+
+
+@router.get(
+    "/{group_id}/tasks/{task_id}/comments",
+    response_model=DefaultLimitOffsetPage[TaskCommentRead],
+    tags=["agent-lead"],
+)
+async def list_group_task_comments(
+    group_id: UUID,
+    task_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+    actor: ActorContext = ACTOR_DEP,
+) -> Any:
+    """List comments for a group-level task in chronological order."""
+    await _require_group_access_for_actor(session, group_id=group_id, actor=actor, write=False)
+    await _get_group_task_or_404(session, task_id=task_id, group_id=group_id)
+    statement = (
+        select(ActivityEvent)
+        .where(col(ActivityEvent.task_id) == task_id)
+        .where(col(ActivityEvent.event_type) == "task.comment")
+        .order_by(asc(col(ActivityEvent.created_at)))
+    )
+    return await paginate(session, statement)
+
+
+@router.post(
+    "/{group_id}/tasks/{task_id}/comments",
+    response_model=TaskCommentRead,
+    tags=["agent-lead"],
+)
+async def create_group_task_comment(
+    group_id: UUID,
+    task_id: UUID,
+    payload: TaskCommentCreate,
+    session: AsyncSession = SESSION_DEP,
+    actor: ActorContext = ACTOR_DEP,
+) -> ActivityEvent:
+    """Create a comment on a group-level task."""
+    await _require_group_access_for_actor(session, group_id=group_id, actor=actor, write=True)
+    task = await _get_group_task_or_404(session, task_id=task_id, group_id=group_id)
+    event = ActivityEvent(
+        event_type="task.comment",
+        message=payload.message,
+        task_id=task.id,
+        board_id=task.board_id,
+        agent_id=(actor.agent.id if actor.actor_type == "agent" and actor.agent else None),
+        created_by_user_id=(actor.user.id if actor.actor_type == "user" and actor.user else None),
+        author_name=(
+            (actor.user.name or "User")
+            if actor.actor_type == "user" and actor.user
+            else None
+        ),
+    )
+    session.add(event)
+    await session.commit()
+    await session.refresh(event)
+    return event

@@ -65,3 +65,34 @@ export async function deleteGroupTask(
     { method: "DELETE" },
   );
 }
+
+export interface TaskComment {
+  id: string;
+  message: string | null;
+  author_name?: string | null;
+  agent_id?: string | null;
+  created_at: string;
+}
+
+export async function listGroupTaskComments(
+  groupId: string,
+  taskId: string,
+): Promise<TaskComment[]> {
+  const res = await customFetch<{ data: { items: TaskComment[] }; status: number }>(
+    `/api/v1/board-groups/${groupId}/tasks/${taskId}/comments?limit=100`,
+    { method: "GET" },
+  );
+  return res.data?.items ?? [];
+}
+
+export async function createGroupTaskComment(
+  groupId: string,
+  taskId: string,
+  content: string,
+): Promise<TaskComment> {
+  const res = await customFetch<{ data: TaskComment; status: number }>(
+    `/api/v1/board-groups/${groupId}/tasks/${taskId}/comments`,
+    { method: "POST", body: JSON.stringify({ message: content }) },
+  );
+  return res.data;
+}
