@@ -192,16 +192,16 @@ export default function EditBoardGroupPage() {
   } | null>(null);
 
   // Worker agents heartbeat
-  const [workerAmount, setWorkerAmount] = useState("10");
-  const [workerUnit, setWorkerUnit] = useState<HeartbeatUnit>("m");
+  const [workerAmount, setWorkerAmount] = useState("24");
+  const [workerUnit, setWorkerUnit] = useState<HeartbeatUnit>("h");
   const [workerSeeded, setWorkerSeeded] = useState(false);
   const [isWorkerApplying, setIsWorkerApplying] = useState(false);
   const [workerApplyError, setWorkerApplyError] = useState<string | null>(null);
   const [workerApplyResult, setWorkerApplyResult] = useState<BoardGroupHeartbeatApplyResult | null>(null);
 
   // Lead agents heartbeat
-  const [leadAmount, setLeadAmount] = useState("30");
-  const [leadUnit, setLeadUnit] = useState<HeartbeatUnit>("m");
+  const [leadAmount, setLeadAmount] = useState("24");
+  const [leadUnit, setLeadUnit] = useState<HeartbeatUnit>("h");
   const [leadSeeded, setLeadSeeded] = useState(false);
   const [isLeadApplying, setIsLeadApplying] = useState(false);
   const [leadApplyError, setLeadApplyError] = useState<string | null>(null);
