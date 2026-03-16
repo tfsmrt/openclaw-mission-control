@@ -837,21 +837,17 @@ export default function BoardGroupDetailPage() {
                     <MessageSquare className="mr-2 h-4 w-4" />
                     Chat
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsChatOpen(false);
-                      setChatError(null);
-                      setNoteSendError(null);
-                      setIsNotesOpen(true);
-                    }}
-                    disabled={!groupId}
-                    title="Group notes"
-                  >
-                    <NotebookText className="mr-2 h-4 w-4" />
-                    Notes
-                  </Button>
+                  {canManageHeartbeat && !showInnerBoards && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowNewTaskForm(true)}
+                      title="New group task"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      New Task
+                    </Button>
+                  )}
                   <Button
                     variant={showInnerBoards ? "primary" : "outline"}
                     size="sm"
@@ -927,23 +923,9 @@ export default function BoardGroupDetailPage() {
               /* ── Kanban view (default) ── */
               <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                 {/* Top bar: error + new task button */}
-                <div className="shrink-0 flex items-center justify-between mb-3">
-                  <div className="min-w-0">
-                    {groupTasksError && (
-                      <p className="text-xs text-danger">{groupTasksError}</p>
-                    )}
-                  </div>
-                  {canManageHeartbeat && (
-                    <button
-                      type="button"
-                      onClick={() => setShowNewTaskForm(true)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1.5 text-xs font-semibold text-strong shadow-sm transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-muted)]"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      New Task
-                    </button>
-                  )}
-                </div>
+                {groupTasksError && (
+                  <p className="shrink-0 mb-3 text-xs text-danger">{groupTasksError}</p>
+                )}
 
                 {/* Kanban board — always render columns, even when empty */}
                 {isGroupTasksLoading ? (
