@@ -204,11 +204,15 @@ async def get_board_group_snapshot(
         include_done=include_done,
         per_board_task_limit=per_board_task_limit,
     )
-    if not member_all_boards_read(ctx.member) and snapshot.boards:
-        allowed_ids = set(
-            await list_accessible_board_ids(session, member=ctx.member, write=False),
-        )
-        snapshot.boards = [item for item in snapshot.boards if item.board.id in allowed_ids]
+    # For user actors, filter snapshot to boards they have access to
+    if actor.actor_type == "user" and actor.user is not None and snapshot.boards:
+        from app.services.organizations import get_active_membership
+        member = await get_active_membership(session, actor.user)
+        if member and not member_all_boards_read(member):
+            allowed_ids = set(
+                await list_accessible_board_ids(session, member=member, write=False),
+            )
+            snapshot.boards = [item for item in snapshot.boards if item.board.id in allowed_ids]
     return snapshot
 
 
