@@ -80,14 +80,20 @@ async def _require_group_access_for_actor(
 ) -> "BoardGroup":
     """Accept both user (OrganizationMember) and agent (group agent) callers."""
     if actor.actor_type == "agent" and actor.agent is not None:
-        # Agents are trusted if they belong to this group.
         group = await BoardGroup.objects.by_id(group_id).first(session)
         if group is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-        if actor.agent.group_id != group_id and actor.agent.board_id is None:
-            # group agent for a different group
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-        return group
+        agent = actor.agent
+        # Group agent for this group ✓
+        if agent.group_id == group_id:
+            return group
+        # Board-scoped agent whose board belongs to this group ✓
+        if agent.board_id is not None:
+            from app.models.boards import Board
+            board = await Board.objects.by_id(agent.board_id).first(session)
+            if board and board.board_group_id == group_id:
+                return group
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     if actor.user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     from app.services.organizations import get_active_membership
@@ -674,16 +680,25 @@ async def _wake_assigned_agent(session: AsyncSession, *, task: Task) -> None:
     if gateway is None or not gateway.url or not gateway.token:
         return
     base_url = settings.base_url or "http://localhost:8000"
+    group_id = task.board_group_id
     msg = (
         f"TASK ASSIGNED\n"
         f"Task: {task.title}\n"
         f"Task ID: {task.id}\n"
+        f"Group ID: {group_id}\n"
         f"Status: {task.status}\n"
         f"Priority: {task.priority or 'medium'}\n\n"
         f"{task.description or ''}\n\n"
-        f"Pick up this task and move it to in_progress:\n"
-        f"PATCH {base_url}/api/v1/agent/boards/{{board_id}}/tasks/{task.id}\n"
-        f'Body: {{"status":"in_progress"}}'
+        f"This is a GROUP TASK (not a board task). Use the group task endpoints:\n"
+        f"Move to in_progress:\n"
+        f"  PATCH {base_url}/api/v1/board-groups/{group_id}/tasks/{task.id}\n"
+        f'  Body: {{"status":"in_progress"}}\n'
+        f"Post a comment when done:\n"
+        f"  POST {base_url}/api/v1/board-groups/{group_id}/tasks/{task.id}/comments\n"
+        f'  Body: {{"message":"...evidence..."}}\n'
+        f"Mark done:\n"
+        f"  PATCH {base_url}/api/v1/board-groups/{group_id}/tasks/{task.id}\n"
+        f'  Body: {{"status":"done"}}'
     ).strip()
     try:
         config = GatewayConfig(url=gateway.url, token=gateway.token)
