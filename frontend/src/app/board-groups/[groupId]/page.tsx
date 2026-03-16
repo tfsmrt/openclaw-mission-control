@@ -281,18 +281,18 @@ export default function BoardGroupDetailPage() {
     return result;
   }, [allAgents, boardIdSet, groupAgent]);
 
-  // Org members query (for team sidebar)
-  const orgMembersQuery = useListOrgMembersApiV1OrganizationsMeMembersGet<
-    listOrgMembersApiV1OrganizationsMeMembersGetResponse,
-    ApiError
-  >(undefined, { query: { enabled: Boolean(isSignedIn) } });
-  const orgMembers = useMemo(
-    () =>
-      orgMembersQuery.data?.status === 200
-        ? (orgMembersQuery.data.data.items ?? [])
-        : [],
-    [orgMembersQuery.data],
-  );
+    // Group members query — only members with access to THIS group (not all org members)
+  const [groupMembers, setGroupMembers] = useState<any[]>([]);
+  useEffect(() => {
+    if (!groupId || !isSignedIn) return;
+    customFetch<{ data: { items: any[] }; status: number }>(
+      `/api/v1/board-groups/${groupId}/members`,
+      { method: "GET" },
+    ).then((res) => {
+      setGroupMembers(res.data?.items ?? []);
+    }).catch(() => setGroupMembers([]));
+  }, [groupId, isSignedIn]);
+  const orgMembers = groupMembers;
 
   const agentAvatarLabel = (name: string) => {
     const parts = name.trim().split(/\s+/);

@@ -626,6 +626,88 @@ async def get_group_agent(
     return AgentLifecycleService.to_agent_read(AgentLifecycleService.with_computed_status(agent))
 
 
+@router.get("/{group_id}/members")
+async def list_group_members(
+    group_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+    ctx: OrganizationContext = ORG_MEMBER_DEP,
+) -> Any:
+    """List organization members who have access to this board group.
+
+    Includes members with:
+    - all_boards_read or all_boards_write (org-wide access)
+    - direct access to any board in this group
+    - direct access to this board group
+    """
+    from app.models.organization_board_access import OrganizationBoardAccess
+    from app.models.organization_members import OrganizationMember
+    from app.models.users import User
+    from sqlalchemy import func, or_
+    from fastapi_pagination.ext.sqlalchemy import paginate as _paginate
+
+    group = await BoardGroup.objects.by_id(group_id).first(session)
+    if group is None or group.organization_id != ctx.organization.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    # Board ids in this group
+    boards_in_group = await Board.objects.filter_by(board_group_id=group_id).all(session)
+    board_ids = [b.id for b in boards_in_group]
+
+    # Members with direct board or group access
+    access_member_ids = select(OrganizationBoardAccess.organization_member_id).where(
+        or_(
+            col(OrganizationBoardAccess.board_group_id) == group_id,
+            *([col(OrganizationBoardAccess.board_id).in_(board_ids)] if board_ids else []),
+        )
+    )
+
+    statement = (
+        select(OrganizationMember, User)
+        .join(User, col(User.id) == col(OrganizationMember.user_id))
+        .where(
+            col(OrganizationMember.organization_id) == ctx.organization.id,
+            or_(
+                col(OrganizationMember.all_boards_read) == True,  # noqa: E712
+                col(OrganizationMember.all_boards_write) == True,  # noqa: E712
+                col(OrganizationMember.id).in_(access_member_ids),
+            ),
+        )
+        .order_by(func.lower(col(User.email)).asc())
+    )
+
+    # Compute effective can_write
+    access_records = await session.exec(
+        select(OrganizationBoardAccess).where(
+            or_(
+                col(OrganizationBoardAccess.board_group_id) == group_id,
+                *([col(OrganizationBoardAccess.board_id).in_(board_ids)] if board_ids else []),
+            )
+        )
+    )
+    access_by_member: dict[str, bool] = {}  # member_id → can_write
+    for rec in access_records:
+        mid = str(rec.organization_member_id)
+        if rec.can_write:
+            access_by_member[mid] = True
+        elif mid not in access_by_member:
+            access_by_member[mid] = False
+
+    from fastapi_pagination import LimitOffsetPage
+    rows = (await session.exec(statement)).all()
+    items = []
+    for member, user in rows:
+        can_write = member.all_boards_write or access_by_member.get(str(member.id), False)
+        items.append({
+            "user_id": str(user.id),
+            "name": user.name or user.email or "Unknown",
+            "email": user.email,
+            "can_write": can_write,
+            "all_boards_read": member.all_boards_read,
+            "all_boards_write": member.all_boards_write,
+        })
+    return {"items": items, "total": len(items)}
+
+
 @router.delete("/{group_id}", response_model=OkResponse)
 async def delete_board_group(
     group_id: UUID,
