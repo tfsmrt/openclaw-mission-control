@@ -32,25 +32,17 @@ async def _refresh_agent_context_for_board(
     
     When board documents change, all agents on that board need updated TOOLS.md.
     """
-    from app.services.openclaw.lifecycle_queue import EnqueueLifecycleTask
-    
-    # Find all agents on this board
+    # Find all agents on this board and mark them for context update
     agents = await session.exec(
         select(Agent).where(col(Agent.board_id) == board_id)
     )
-    
-    # Queue context refresh for each agent
     for agent in agents.all():
-        if agent.openclaw_session_id:
-            try:
-                await EnqueueLifecycleTask(session).enqueue(
-                    agent_id=agent.id,
-                    action="update",
-                    delay_seconds=5,  # Small delay to batch multiple changes
-                )
-            except Exception:
-                # Log but don't fail the document operation
-                pass
+        try:
+            agent.provision_action = "update"
+            session.add(agent)
+        except Exception:  # noqa: BLE001
+            pass
+    await session.commit()
 
 
 @router.get("", response_model=DefaultLimitOffsetPage[BoardDocumentRead])
