@@ -70,6 +70,7 @@ export interface TaskComment {
   id: string;
   message: string | null;
   author_name?: string | null;
+  agent_name?: string | null;
   agent_id?: string | null;
   created_at: string;
 }

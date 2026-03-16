@@ -104,4 +104,5 @@ class TaskCommentRead(SQLModel):
     task_id: UUID | None
     created_at: datetime
     created_by_user_id: UUID | None = None
-    author_name: str | None = None  # populated for human comments; None for agent comments
+    author_name: str | None = None  # populated for human comments
+    agent_name: str | None = None   # populated for agent comments

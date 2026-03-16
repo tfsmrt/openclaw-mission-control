@@ -209,6 +209,10 @@ export default function BoardGroupDetailPage() {
   }, [boards]);
   const groupMentionSuggestions = useMemo(() => {
     const options = new Set<string>(["lead", "all"]);
+    // Add group agent name if provisioned
+    if (groupAgent?.name) {
+      options.add(groupAgent.name.toLowerCase());
+    }
     boards.forEach((item) => {
       (item.tasks ?? []).forEach((task) => {
         if (task.assignee) {
@@ -217,7 +221,7 @@ export default function BoardGroupDetailPage() {
       });
     });
     return [...options];
-  }, [boards]);
+  }, [boards, groupAgent]);
 
   const membershipQuery = useGetMyMembershipApiV1OrganizationsMeMemberGet<
     getMyMembershipApiV1OrganizationsMeMemberGetResponse,
@@ -1335,15 +1339,15 @@ export default function BoardGroupDetailPage() {
                     >
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <span className="text-xs font-semibold text-strong">
-                          {comment.author_name ?? (comment.agent_id ? "Agent" : "User")}
+                          {comment.author_name ?? comment.agent_name ?? (comment.agent_id ? "Agent" : "User")}
                         </span>
                         <span className="text-[10px] text-quiet">
                           {new Date(comment.created_at).toLocaleString()}
                         </span>
                       </div>
-                      <p className="text-sm text-strong whitespace-pre-wrap break-words">
-                        {comment.message}
-                      </p>
+                      <div className="prose prose-sm max-w-none dark:prose-invert text-[color:var(--text)]">
+                        <Markdown content={comment.message ?? ""} variant="comment" />
+                      </div>
                     </div>
                   ))}
                   <div ref={commentsEndRef} />

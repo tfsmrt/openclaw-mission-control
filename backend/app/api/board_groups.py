@@ -820,7 +820,9 @@ async def create_group_task_comment(
         agent_id=(actor.agent.id if actor.actor_type == "agent" and actor.agent else None),
         created_by_user_id=(actor.user.id if actor.actor_type == "user" and actor.user else None),
         author_name=(
-            (actor.user.name or "User")
+            (actor.agent.name or "Agent")
+            if actor.actor_type == "agent" and actor.agent
+            else (actor.user.name or "User")
             if actor.actor_type == "user" and actor.user
             else None
         ),
