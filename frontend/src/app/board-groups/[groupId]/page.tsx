@@ -124,6 +124,9 @@ type Task = {
   status: TaskStatus;
   priority: string;
   description?: string | null;
+  assignee?: string | null;
+  assigned_agent_id?: string | null;
+  creator_name?: string | null;
 };
 
 const toTaskBoardTask = (t: GroupTask): Task => ({
@@ -132,6 +135,9 @@ const toTaskBoardTask = (t: GroupTask): Task => ({
   status: t.status as TaskStatus,
   priority: t.priority,
   description: t.description ?? undefined,
+  assignee: t.assignee ?? undefined,
+  assigned_agent_id: t.assigned_agent_id ?? undefined,
+  creator_name: t.creator_name ?? undefined,
 });
 
 const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [

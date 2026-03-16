@@ -7,6 +7,9 @@ export interface GroupTask {
   status: string;
   priority: string;
   board_group_id: string;
+  assigned_agent_id?: string | null;
+  assignee?: string | null;
+  creator_name?: string | null;
   created_at: string;
   updated_at: string;
 }

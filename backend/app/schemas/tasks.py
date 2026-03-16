@@ -80,6 +80,7 @@ class TaskRead(TaskBase):
     board_group_id: UUID | None = None
     created_by_user_id: UUID | None
     creator_name: str | None = None  # denormalized for display
+    assignee: str | None = None      # denormalized agent name for display
     in_progress_at: datetime | None
     created_at: datetime
     updated_at: datetime

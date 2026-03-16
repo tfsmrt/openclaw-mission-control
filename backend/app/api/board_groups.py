@@ -728,6 +728,25 @@ async def _get_group_task_or_404(
         "x-when-to-use": ["group lead heartbeat loop", "picking up unassigned inbox tasks"],
     },
 )
+async def _build_agent_name_map(session: AsyncSession, tasks: list[Task]) -> dict[UUID, str]:
+    """Return {agent_id: agent_name} for all assigned agents in the task list."""
+    ids = [t.assigned_agent_id for t in tasks if t.assigned_agent_id]
+    if not ids:
+        return {}
+    result = await session.exec(select(Agent).where(col(Agent.id).in_(ids)))
+    return {a.id: a.name for a in result.all()}
+
+
+async def _build_user_name_map(session: AsyncSession, tasks: list[Task]) -> dict[UUID, str]:
+    """Return {user_id: user_name} for all task creators."""
+    from app.models.users import User
+    ids = [t.created_by_user_id for t in tasks if t.created_by_user_id]
+    if not ids:
+        return {}
+    result = await session.exec(select(User).where(col(User.id).in_(ids)))
+    return {u.id: (u.name or u.email or "User") for u in result.all()}
+
+
 async def list_group_tasks(
     group_id: UUID,
     session: AsyncSession = SESSION_DEP,
@@ -741,7 +760,16 @@ async def list_group_tasks(
         .where(col(Task.board_id).is_(None))
         .order_by(col(Task.created_at).desc())
     )
-    return await paginate(session, statement)
+    page = await paginate(session, statement)
+    agent_map = await _build_agent_name_map(session, page.items)
+    user_map = await _build_user_name_map(session, page.items)
+    items_enriched = []
+    for task in page.items:
+        d = task.model_dump()
+        d["assignee"] = agent_map.get(task.assigned_agent_id) if task.assigned_agent_id else None
+        d["creator_name"] = user_map.get(task.created_by_user_id) if task.created_by_user_id else None
+        items_enriched.append(d)
+    return {**page.model_dump(exclude={"items"}), "items": items_enriched}
 
 
 @router.post("/{group_id}/tasks", response_model=TaskRead, tags=["agent-lead"])
