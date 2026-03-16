@@ -52,8 +52,10 @@ const SSE_RECONNECT_BACKOFF = {
 
 const STREAM_CONNECT_SPACING_MS = 120;
 const MAX_FEED_ITEMS = 300;
-const PAGED_LIMIT = 200;
-const PAGED_MAX = 1000;
+const PAGED_LIMIT = 50;
+const PAGED_MAX = 300;
+const INITIAL_VISIBLE = 20;
+const LOAD_MORE_STEP = 20;
 
 type Agent = AgentRead & { status: string };
 
@@ -322,6 +324,7 @@ export default function ActivityPage() {
   const [isFeedLoading, setIsFeedLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const [boards, setBoards] = useState<BoardRead[]>([]);
 
   const feedItemsRef = useRef<FeedItem[]>([]);
@@ -624,6 +627,7 @@ export default function ActivityPage() {
       setFeedItems([]);
       setFeedError(null);
       setIsFeedLoading(false);
+      setVisibleCount(INITIAL_VISIBLE);
       seenIdsRef.current = new Set();
       boardsByIdRef.current = new Map();
       taskMetaByIdRef.current = new Map();
@@ -1319,13 +1323,27 @@ export default function ActivityPage() {
                 </div>
               </div>
 
-              <div className="p-8">
+              <div className="p-8 space-y-4">
                 <ActivityFeed
                   isLoading={isFeedLoading}
                   errorMessage={feedError}
-                  items={orderedFeed}
+                  items={orderedFeed.slice(0, visibleCount)}
                   renderItem={(item) => <FeedCard key={item.id} item={item} />}
                 />
+                {!isFeedLoading && orderedFeed.length > visibleCount && (
+                  <div className="flex justify-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCount((n) => n + LOAD_MORE_STEP)}
+                      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-2 text-sm font-semibold text-muted shadow-sm transition hover:bg-[color:var(--surface-muted)] hover:text-strong"
+                    >
+                      Load more ({Math.min(LOAD_MORE_STEP, orderedFeed.length - visibleCount)} of {orderedFeed.length - visibleCount} remaining)
+                    </button>
+                  </div>
+                )}
+                {!isFeedLoading && orderedFeed.length > 0 && orderedFeed.length <= visibleCount && (
+                  <p className="text-center text-xs text-quiet pt-2">All {orderedFeed.length} events shown</p>
+                )}
               </div>
             </main>
           </SignedIn>
