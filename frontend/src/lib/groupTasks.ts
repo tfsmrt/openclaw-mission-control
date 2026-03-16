@@ -19,6 +19,8 @@ export interface GroupTaskCreate {
   description?: string | null;
   status?: string;
   priority?: string;
+  due_at?: string | null;
+  assigned_agent_id?: string | null;
 }
 
 export interface GroupTaskUpdate {

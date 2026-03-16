@@ -613,6 +613,9 @@ export default function BoardGroupDetailPage() {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>("inbox");
+  const [newTaskPriority, setNewTaskPriority] = useState("medium");
+  const [newTaskDueAt, setNewTaskDueAt] = useState("");
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState<string>("");
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
 
   const fetchGroupTasks = useCallback(async () => {
@@ -640,10 +643,16 @@ export default function BoardGroupDetailPage() {
         title: newTaskTitle.trim(),
         description: newTaskDescription.trim() || null,
         status: newTaskStatus,
+        priority: newTaskPriority,
+        due_at: newTaskDueAt || null,
+        assigned_agent_id: newTaskAssigneeId || null,
       });
       setNewTaskTitle("");
       setNewTaskDescription("");
       setNewTaskStatus("inbox");
+      setNewTaskPriority("medium");
+      setNewTaskDueAt("");
+      setNewTaskAssigneeId("");
       setShowNewTaskForm(false);
       await fetchGroupTasks();
     } catch (err) {
@@ -651,7 +660,7 @@ export default function BoardGroupDetailPage() {
     } finally {
       setIsCreatingGroupTask(false);
     }
-  }, [groupId, isSignedIn, newTaskTitle, newTaskDescription, newTaskStatus, fetchGroupTasks]);
+  }, [groupId, isSignedIn, newTaskTitle, newTaskDescription, newTaskStatus, newTaskPriority, newTaskDueAt, newTaskAssigneeId, fetchGroupTasks]);
 
   const handleGroupTaskMove = useCallback(
     async (taskId: string, status: TaskStatus) => {
@@ -844,7 +853,10 @@ export default function BoardGroupDetailPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setShowNewTaskForm(true)}
+                      onClick={() => {
+                        setNewTaskAssigneeId(groupAgent?.id ?? "");
+                        setShowNewTaskForm(true);
+                      }}
                       title="New group task"
                     >
                       <Plus className="mr-2 h-4 w-4" />
@@ -1029,93 +1041,85 @@ export default function BoardGroupDetailPage() {
 
           {/* New Task Modal */}
           {showNewTaskForm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-              <div className="w-full max-w-md rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-2xl">
-                <div className="flex items-center justify-between border-b border-[color:var(--border)] px-6 py-4">
-                  <p className="text-sm font-semibold text-strong">New Group Task</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowNewTaskForm(false);
-                      setNewTaskTitle("");
-                      setNewTaskDescription("");
-                      setNewTaskStatus("inbox");
-                    }}
-                    className="rounded-lg border border-[color:var(--border)] p-1.5 text-quiet transition hover:bg-[color:var(--surface-muted)]"
-                    aria-label="Close"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowNewTaskForm(false)}>
+              <div className="w-full max-w-lg rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="border-b border-[color:var(--border)] px-6 py-5">
+                  <h2 className="text-lg font-semibold text-strong">New task</h2>
+                  <p className="mt-0.5 text-xs text-quiet">Add a task to the inbox and triage it when you are ready.</p>
                 </div>
-                <div className="space-y-4 px-6 py-5">
+                <div className="space-y-5 px-6 py-5 max-h-[70vh] overflow-y-auto">
+                  {/* Title */}
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-strong">
-                      Title <span className="text-danger">*</span>
-                    </label>
+                    <label className="mb-1.5 block text-sm font-semibold text-strong">Title</label>
                     <input
                       type="text"
                       value={newTaskTitle}
                       onChange={(e) => setNewTaskTitle(e.target.value)}
-                      placeholder="Task title"
-                      className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--border-strong)] focus:outline-none"
-                      // eslint-disable-next-line jsx-a11y/no-autofocus
+                      placeholder="e.g. Prepare launch notes"
+                      className="h-11 w-full rounded-xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--accent)] focus:ring-2 focus:ring-blue-200 focus:outline-none"
                       autoFocus
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void handleCreateGroupTask();
-                        }
-                        if (e.key === "Escape") {
-                          setShowNewTaskForm(false);
-                          setNewTaskTitle("");
-                          setNewTaskDescription("");
-                          setNewTaskStatus("inbox");
-                        }
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleCreateGroupTask(); }
+                        if (e.key === "Escape") setShowNewTaskForm(false);
                       }}
                     />
                   </div>
+                  {/* Description */}
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-strong">
-                      Description <span className="text-quiet font-normal">(optional)</span>
-                    </label>
+                    <label className="mb-1.5 block text-sm font-semibold text-strong">Description</label>
                     <textarea
                       value={newTaskDescription}
                       onChange={(e) => setNewTaskDescription(e.target.value)}
-                      placeholder="Describe the task…"
-                      rows={3}
-                      className="w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--border-strong)] focus:outline-none resize-none"
+                      placeholder="Optional details"
+                      rows={4}
+                      className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-sm text-strong placeholder:text-quiet focus:border-[color:var(--accent)] focus:outline-none resize-y"
                     />
                   </div>
+                  {/* Priority */}
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-strong">
-                      Status
-                    </label>
+                    <label className="mb-1.5 block text-sm font-semibold text-strong">Priority</label>
                     <select
-                      value={newTaskStatus}
-                      onChange={(e) => setNewTaskStatus(e.target.value as TaskStatus)}
-                      className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-sm text-strong focus:border-[color:var(--border-strong)] focus:outline-none"
+                      value={newTaskPriority}
+                      onChange={(e) => setNewTaskPriority(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm text-strong focus:outline-none"
                     >
-                      {STATUS_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  </div>
+                  {/* Due date */}
+                  <div>
+                    <label className="mb-1.5 block text-sm font-semibold text-strong">Due date</label>
+                    <input
+                      type="date"
+                      value={newTaskDueAt}
+                      onChange={(e) => setNewTaskDueAt(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm text-strong focus:outline-none"
+                    />
+                  </div>
+                  {/* Assign to */}
+                  <div>
+                    <label className="mb-1.5 block text-sm font-semibold text-strong">Assign to</label>
+                    <select
+                      value={newTaskAssigneeId}
+                      onChange={(e) => setNewTaskAssigneeId(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm text-strong focus:outline-none"
+                    >
+                      <option value="">Unassigned</option>
+                      {groupAgent && <option value={groupAgent.id}>{groupAgent.name} (group lead)</option>}
                     </select>
                   </div>
                   {groupTasksError && (
                     <p className="text-xs text-danger">{groupTasksError}</p>
                   )}
                 </div>
-                <div className="flex items-center justify-end gap-2 border-t border-[color:var(--border)] px-6 py-4">
+                <div className="flex items-center justify-end gap-3 border-t border-[color:var(--border)] px-6 py-4">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowNewTaskForm(false);
-                      setNewTaskTitle("");
-                      setNewTaskDescription("");
-                      setNewTaskStatus("inbox");
-                    }}
-                    className="rounded-lg border border-[color:var(--border)] px-3 py-1.5 text-xs font-semibold text-muted transition hover:bg-[color:var(--surface-muted)]"
+                    onClick={() => setShowNewTaskForm(false)}
+                    className="rounded-xl border border-[color:var(--border)] px-4 py-2 text-sm font-semibold text-muted transition hover:bg-[color:var(--surface-muted)]"
                   >
                     Cancel
                   </button>
@@ -1123,9 +1127,9 @@ export default function BoardGroupDetailPage() {
                     type="button"
                     onClick={() => void handleCreateGroupTask()}
                     disabled={isCreatingGroupTask || !newTaskTitle.trim()}
-                    className="rounded-lg bg-[color:var(--accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl bg-[color:var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                   >
-                    {isCreatingGroupTask ? "Saving…" : "Save"}
+                    {isCreatingGroupTask ? "Creating…" : "Create task"}
                   </button>
                 </div>
               </div>
