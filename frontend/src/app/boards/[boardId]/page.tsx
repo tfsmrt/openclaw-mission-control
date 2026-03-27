@@ -3883,51 +3883,21 @@ export default function BoardDetailPage() {
                 </p>
               )}
             </div>
-            {selectedTask?.creator_name && (
+            <div className="grid grid-cols-2 gap-4">
+              {selectedTask?.creator_name && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-quiet">
+                    Created by
+                  </p>
+                  <p className="text-sm text-muted">{selectedTask.creator_name}</p>
+                </div>
+              )}
               <div className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wider text-quiet">
-                  Created by
+                  Assigned
                 </p>
-                <p className="text-sm text-muted">{selectedTask.creator_name}</p>
+                <p className="text-sm text-muted">{selectedTask?.assignee ?? "Unassigned"}</p>
               </div>
-            )}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-quiet">
-                Custom fields
-              </p>
-              {customFieldDefinitionsQuery.isLoading ? (
-                <p className="text-sm text-quiet">Loading custom fields…</p>
-              ) : boardCustomFieldDefinitions.length > 0 ? (
-                <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
-                  <dl className="space-y-2">
-                    {boardCustomFieldDefinitions.map((definition) => {
-                      const value =
-                        selectedTaskCustomFieldValues[definition.field_key];
-                      if (!isCustomFieldVisible(definition, value)) {
-                        return null;
-                      }
-                      return (
-                        <div
-                          key={definition.id}
-                          className="grid grid-cols-[160px_1fr] gap-3"
-                        >
-                          <dt className="text-xs font-semibold text-muted">
-                            {definition.label || definition.field_key}
-                            {definition.required === true ? (
-                              <span className="ml-1 text-danger">*</span>
-                            ) : null}
-                          </dt>
-                          <dd className="text-xs text-strong">
-                            {formatCustomFieldDetailValue(definition, value)}
-                          </dd>
-                        </div>
-                      );
-                    })}
-                  </dl>
-                </div>
-              ) : (
-                <p className="text-sm text-quiet">No custom fields.</p>
-              )}
             </div>
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-quiet">
