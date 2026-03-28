@@ -57,44 +57,7 @@ def _extract_text_from_msg(msg: dict) -> str:
     return str(content).strip()
 
 
-def _extract_reply(history: object) -> str:
-    """Pull the last assistant text from a chat.history response."""
-    if not isinstance(history, dict):
-        return ""
-    messages = history.get("messages") or []
-    if not isinstance(messages, list):
-        return ""
-    for msg in reversed(messages):
-        if not isinstance(msg, dict):
-            continue
-        if msg.get("role") != "assistant":
-            continue
-        text = _extract_text_from_msg(msg)
-        if text:
-            return text
-    return ""
 
-
-def _extract_reply_after(history: object, after_ts_ms: int) -> str:
-    """Pull the last assistant text that arrived after `after_ts_ms`."""
-    if not isinstance(history, dict):
-        return ""
-    messages = history.get("messages") or []
-    if not isinstance(messages, list):
-        return ""
-    for msg in reversed(messages):
-        if not isinstance(msg, dict):
-            continue
-        if msg.get("role") != "assistant":
-            continue
-        ts = msg.get("timestamp", 0)
-        if isinstance(ts, (int, float)) and ts < after_ts_ms:
-            # This message is older than our send — stop looking
-            break
-        text = _extract_text_from_msg(msg)
-        if text:
-            return text
-    return ""
 
 
 async def _send_and_wait(
@@ -103,15 +66,27 @@ async def _send_and_wait(
     message: str,
     config: GatewayConfig,
 ) -> str:
-    """Send a message to an agent session and wait for the reply.
+    """Send a message to the lead agent and wait for the reply.
 
-    agent.wait only signals when the *current* run finishes, but the lead
-    may do multiple tool-use turns before giving a final text reply. We poll
-    chat.history until we see a new assistant text message that appeared after
-    our user message, or until we hit the overall timeout.
+    Strategy: snapshot the message count before sending, then after agent.wait
+    completes, look for assistant messages with seq > our user message's seq.
+    This avoids false-matching stale replies from prior conversations.
     """
     import asyncio
     import time
+
+    # Snapshot history to find the current max seq number
+    pre_history = await openclaw_call(
+        "chat.history",
+        {"sessionKey": session_key, "limit": 3},
+        config=config,
+    )
+    pre_messages = pre_history.get("messages") or [] if isinstance(pre_history, dict) else []
+    max_pre_seq = 0
+    for m in pre_messages:
+        seq = (m.get("__openclaw") or {}).get("seq", 0)
+        if isinstance(seq, (int, float)) and seq > max_pre_seq:
+            max_pre_seq = seq
 
     run_id = str(uuid4())
     sent_at = time.monotonic()
@@ -127,54 +102,55 @@ async def _send_and_wait(
         config=config,
     )
 
-    # Record the timestamp of the user message we just sent so we only
-    # accept assistant replies that come *after* it.
-    sent_ts = int(time.time() * 1000)
-
     deadline = sent_at + _WAIT_TIMEOUT_MS / 1000
 
+    # Our user message will have seq = max_pre_seq + 1 (approximately).
+    # We want an assistant reply with seq > max_pre_seq + 1.
+    user_seq = max_pre_seq + 1
+
     while time.monotonic() < deadline:
-        # Wait for the current agent run to finish
         remaining_ms = max(1000, int((deadline - time.monotonic()) * 1000))
-        wait_result = await openclaw_call(
+        await openclaw_call(
             "agent.wait",
             {"runId": run_id, "timeoutMs": min(remaining_ms, 30_000)},
             config=config,
         )
 
-        # Fetch history and look for a final text reply after our message
-        history = await openclaw_call(
-            "chat.history",
-            {"sessionKey": session_key, "limit": 10},
-            config=config,
-        )
-        text = _extract_reply_after(history, sent_ts)
+        text = await _get_reply_after_seq(session_key, user_seq, config)
         if text:
             return text
 
-        # If the agent is still running more tool-use turns, wait a bit
-        # and get the next run's completion signal
-        if wait_result.get("status") in ("ok", "timeout"):
-            # Try once more with a fresh wait for any follow-up turns
-            await asyncio.sleep(1)
-            history = await openclaw_call(
-                "chat.history",
-                {"sessionKey": session_key, "limit": 10},
-                config=config,
-            )
-            text = _extract_reply_after(history, sent_ts)
-            if text:
-                return text
-            # No more turns expected - break out
-            break
+        # Grace period for multi-turn tool usage
+        await asyncio.sleep(1.5)
+        text = await _get_reply_after_seq(session_key, user_seq, config)
+        if text:
+            return text
+        break
 
-    # Last attempt
+    # Final attempt
+    return await _get_reply_after_seq(session_key, user_seq, config)
+
+
+async def _get_reply_after_seq(session_key: str, user_seq: int, config: GatewayConfig) -> str:
+    """Fetch history and find the last assistant text message with seq > user_seq."""
     history = await openclaw_call(
         "chat.history",
-        {"sessionKey": session_key, "limit": 10},
+        {"sessionKey": session_key, "limit": 15},
         config=config,
     )
-    return _extract_reply_after(history, sent_ts) or _extract_reply(history)
+    messages = history.get("messages") or [] if isinstance(history, dict) else []
+    for msg in reversed(messages):
+        if not isinstance(msg, dict):
+            continue
+        seq = (msg.get("__openclaw") or {}).get("seq", 0)
+        if not isinstance(seq, (int, float)) or seq <= user_seq:
+            continue  # This message is from before our send
+        if msg.get("role") != "assistant":
+            continue
+        text = _extract_text_from_msg(msg)
+        if text:
+            return text
+    return ""
 
 
 # ---------------------------------------------------------------------------
