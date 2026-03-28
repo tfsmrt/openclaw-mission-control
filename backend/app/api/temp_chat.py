@@ -310,33 +310,23 @@ async def _send_and_wait(
         config=config,
     )
 
-    deadline = sent_at + _WAIT_TIMEOUT_MS / 1000
-
-    # Our user message will have seq = max_pre_seq + 1 (approximately).
-    # We want an assistant reply with seq > max_pre_seq + 1.
+    # Our user message will have seq = max_pre_seq + 1.
+    # Poll history until we see an assistant reply with seq > user_seq.
+    # Don't rely on agent.wait — it can return for wrong run IDs when
+    # multiple messages are queued (e.g. after a wake ping).
     user_seq = max_pre_seq + 1
+    deadline = sent_at + _WAIT_TIMEOUT_MS / 1000
+    poll_interval = 2.0
 
     while time.monotonic() < deadline:
-        remaining_ms = max(1000, int((deadline - time.monotonic()) * 1000))
-        await openclaw_call(
-            "agent.wait",
-            {"runId": run_id, "timeoutMs": min(remaining_ms, 30_000)},
-            config=config,
-        )
-
+        await asyncio.sleep(poll_interval)
         text = await _get_reply_after_seq(session_key, user_seq, config)
         if text:
             return text
+        # Increase poll interval slightly after first few attempts
+        poll_interval = min(poll_interval + 1.0, 5.0)
 
-        # Grace period for multi-turn tool usage
-        await asyncio.sleep(1.5)
-        text = await _get_reply_after_seq(session_key, user_seq, config)
-        if text:
-            return text
-        break
-
-    # Final attempt
-    return await _get_reply_after_seq(session_key, user_seq, config)
+    return ""
 
 
 async def _get_reply_after_seq(session_key: str, user_seq: int, config: GatewayConfig) -> str:
