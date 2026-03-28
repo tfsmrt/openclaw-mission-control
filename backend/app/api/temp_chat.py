@@ -129,29 +129,50 @@ async def _ensure_agent_ready(
             raise_gateway_errors=False,
         )
 
-        # Tell the agent to re-read TOOLS.md so it picks up the new token
-        if agent.openclaw_session_id and gateway:
-            try:
-                config = GatewayConfig(url=gateway.url, token=gateway.token)
-                await openclaw_call(
-                    "chat.send",
-                    {
-                        "sessionKey": agent.openclaw_session_id,
-                        "message": (
-                            "SYSTEM: Your AUTH_TOKEN was just refreshed. "
-                            "Re-read your TOOLS.md file NOW to pick up the new token. "
-                            "The old token is invalid (401). Do this before any API calls."
-                        ),
-                        "deliver": False,
-                        "idempotencyKey": str(uuid4()),
-                    },
-                    config=config,
-                )
-                # Wait for the agent to process the token refresh
-                import asyncio
+        # The lifecycle enqueues a reconcile job with ~30s delay.
+        # We need to wait for the agent session to actually be ready.
+        config = GatewayConfig(url=gateway.url, token=gateway.token)
+
+        if agent.openclaw_session_id:
+            import asyncio
+
+            # Poll until the agent session exists and responds, up to 40s
+            for attempt in range(8):
                 await asyncio.sleep(5)
-            except Exception:  # noqa: BLE001
-                pass
+                try:
+                    # Send a lightweight ping — if the session is alive it'll process it
+                    run_id = str(uuid4())
+                    await openclaw_call(
+                        "chat.send",
+                        {
+                            "sessionKey": agent.openclaw_session_id,
+                            "message": (
+                                "SYSTEM: Your AUTH_TOKEN was just refreshed. "
+                                "Re-read your TOOLS.md file NOW to pick up the new token. "
+                                "The old token is invalid (401). Do this before any API calls."
+                            ),
+                            "deliver": False,
+                            "idempotencyKey": run_id,
+                        },
+                        config=config,
+                    )
+                    # Wait for it to actually process
+                    wait_result = await openclaw_call(
+                        "agent.wait",
+                        {"runId": run_id, "timeoutMs": 15000},
+                        config=config,
+                    )
+                    if wait_result.get("status") == "ok":
+                        logger.info("temp_chat.ensure_agent_ready.agent_alive", extra={
+                            "agent_name": agent.name, "attempts": attempt + 1
+                        })
+                        break
+                except Exception:  # noqa: BLE001
+                    continue
+            else:
+                logger.warning("temp_chat.ensure_agent_ready.agent_not_responding", extra={
+                    "agent_name": agent.name
+                })
 
     except Exception as exc:  # noqa: BLE001
         logger.warning("temp_chat.ensure_agent_ready.failed", extra={"error": str(exc)})
