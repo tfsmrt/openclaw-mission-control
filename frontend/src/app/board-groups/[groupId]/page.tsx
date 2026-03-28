@@ -64,6 +64,7 @@ import {
 import { TaskBoard, type TaskStatus } from "@/components/organisms/TaskBoard";
 import { StatusDot } from "@/components/atoms/StatusDot";
 import { CollapsibleMarkdown, Markdown } from "@/components/atoms/Markdown";
+import { CopyButton } from "@/components/atoms/CopyButton";
 import { SignedOutPanel } from "@/components/auth/SignedOutPanel";
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
@@ -88,15 +89,19 @@ const canWriteGroupBoards = (
 };
 
 function GroupChatMessageCard({ message }: { message: BoardGroupMemoryRead }) {
+  const content = (message.content ?? "").trim();
   return (
-    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+    <div className="group rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-strong">
           {message.source ?? "User"}
         </p>
-        <span className="text-xs text-quiet">
-          {formatTimestamp(message.created_at)}
-        </span>
+        <div className="flex items-center gap-1">
+          {content ? <CopyButton text={content} /> : null}
+          <span className="text-xs text-quiet">
+            {formatTimestamp(message.created_at)}
+          </span>
+        </div>
       </div>
       <div className="mt-2 select-text cursor-text text-sm leading-relaxed text-strong break-words">
         <Markdown content={message.content} variant="basic" />
@@ -1794,11 +1799,12 @@ export default function BoardGroupDetailPage() {
                 </p>
               ) : (
                 tempChatMessages.map((msg, idx) => (
-                  <div key={idx} className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                  <div key={idx} className="group rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-strong">
                         {msg.role === "user" ? "You" : (group?.name ? `${group.name} Lead` : "Group Lead")}
                       </p>
+                      {msg.text ? <CopyButton text={msg.text} /> : null}
                     </div>
                     <div className="mt-2 select-text cursor-text text-sm leading-relaxed text-strong break-words">
                       <Markdown content={msg.text} variant="basic" />

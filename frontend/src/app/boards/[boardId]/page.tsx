@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 
 import { Markdown, CollapsibleMarkdown } from "@/components/atoms/Markdown";
+import { CopyButton } from "@/components/atoms/CopyButton";
 import { StatusDot } from "@/components/atoms/StatusDot";
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { TaskBoard } from "@/components/organisms/TaskBoard";
@@ -599,10 +600,13 @@ const TaskCommentCard = memo(function TaskCommentCard({
 }) {
   const message = (comment.message ?? "").trim();
   return (
-    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+    <div className="group rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
       <div className="flex items-center justify-between text-xs text-quiet">
         <span>{authorLabel}</span>
-        <span>{formatShortTimestamp(comment.created_at)}</span>
+        <div className="flex items-center gap-1">
+          {message ? <CopyButton text={message} /> : null}
+          <span>{formatShortTimestamp(comment.created_at)}</span>
+        </div>
       </div>
       {message ? (
         <div className="mt-2 select-text cursor-text text-sm leading-relaxed text-strong break-words">
@@ -625,13 +629,17 @@ const ChatMessageCard = memo(function ChatMessageCard({
   fallbackSource: string;
 }) {
   const sourceLabel = resolveHumanActorName(message.source, fallbackSource);
+  const content = (message.content ?? "").trim();
   return (
-    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+    <div className="group rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-strong">{sourceLabel}</p>
-        <span className="text-xs text-quiet">
-          {formatShortTimestamp(message.created_at)}
-        </span>
+        <div className="flex items-center gap-1">
+          {content ? <CopyButton text={content} /> : null}
+          <span className="text-xs text-quiet">
+            {formatShortTimestamp(message.created_at)}
+          </span>
+        </div>
       </div>
       <div className="mt-2 select-text cursor-text text-sm leading-relaxed text-strong break-words">
         <Markdown content={message.content} variant="basic" />
@@ -4618,11 +4626,12 @@ export default function BoardDetailPage() {
                 </p>
               ) : (
                 tempChatMessages.map((msg, idx) => (
-                  <div key={idx} className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                  <div key={idx} className="group rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-strong">
                         {msg.role === "user" ? "You" : (board?.name ? `${board.name} Lead` : "Lead")}
                       </p>
+                      {msg.text ? <CopyButton text={msg.text} /> : null}
                     </div>
                     <div className="mt-2 select-text cursor-text text-sm leading-relaxed text-strong break-words">
                       <Markdown content={msg.text} variant="basic" />
