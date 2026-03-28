@@ -641,11 +641,11 @@ export default function BoardGroupDetailPage() {
     setTempChatError(null);
     setTempChatMessages((prev) => [...prev, { role: "user", text: trimmed }]);
     try {
-      const res = await customFetch<{ text?: string }>(
+      const res = await customFetch<{ data: { text?: string }; status: number }>(
         `/api/v1/board-groups/${groupId}/temp-chat`,
         { method: "POST", body: JSON.stringify({ message: trimmed }) },
       );
-      const text = (res as { text?: string }).text ?? "";
+      const text = res.data?.text ?? "";
       setTempChatMessages((prev) => [...prev, { role: "assistant", text }]);
       return true;
     } catch (err) {
