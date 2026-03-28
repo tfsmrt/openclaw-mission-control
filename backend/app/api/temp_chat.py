@@ -1,7 +1,14 @@
-"""Temporary board chat — ephemeral, not stored, proxied through OpenClaw gateway.
+"""Temporary board / board-group chat.
 
-POST /api/v1/boards/{board_id}/temp-chat          — send a message, get reply
-DELETE /api/v1/boards/{board_id}/temp-chat         — clear session history
+Works exactly like the regular board chat (messages go to the lead agent's
+real session) but skips the DB write — nothing is stored, nothing shows in
+board memory or live feed.
+
+POST   /api/v1/boards/{board_id}/temp-chat        — send, wait, return reply
+DELETE /api/v1/boards/{board_id}/temp-chat         — (no-op, stateless from our side)
+
+POST   /api/v1/board-groups/{group_id}/temp-chat
+DELETE /api/v1/board-groups/{group_id}/temp-chat
 """
 
 from __future__ import annotations
@@ -13,183 +20,145 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.deps import ACTOR_DEP, SESSION_DEP, ActorContext
+from app.core.config import settings
 from app.models.agents import Agent
 from app.models.boards import Board
 from app.models.gateways import Gateway
-from app.models.tasks import Task
+from app.services.openclaw.gateway_dispatch import GatewayDispatchService
 from app.services.openclaw.gateway_rpc import (
     GatewayConfig,
     OpenClawGatewayError,
     openclaw_call,
-    delete_session as gw_delete_session,
 )
 from app.services.organizations import require_board_access
 
 router = APIRouter(prefix="/boards/{board_id}/temp-chat", tags=["temp-chat"])
+group_router = APIRouter(prefix="/board-groups/{group_id}/temp-chat", tags=["temp-chat"])
+
+_WAIT_TIMEOUT_MS = 60_000
 
 
-def _session_key(board_id: str, user_id: str) -> str:
-    """Unique ephemeral session per user per board.
-    Prefix with 'subagent:' so the gateway treats it as an isolated session
-    with no tools — avoids inheriting agent exec/file access.
-    """
-    return f"subagent:temp-chat:{board_id}:{user_id}"
+def _actor_name(actor: ActorContext) -> str:
+    if actor.user:
+        return actor.user.name or "User"
+    return "User"
 
 
-async def _get_board_and_gateway(
+def _extract_reply(history: object) -> str:
+    """Pull the last assistant text from a chat.history response."""
+    if not isinstance(history, dict):
+        return ""
+    messages = history.get("messages") or []
+    if not isinstance(messages, list):
+        return ""
+    for msg in reversed(messages):
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("role") != "assistant":
+            continue
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            parts = [
+                b.get("text", "")
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
+            ]
+            return "\n".join(parts).strip()
+        return str(content).strip()
+    return ""
+
+
+async def _send_and_wait(
+    *,
+    session_key: str,
+    message: str,
+    config: GatewayConfig,
+) -> str:
+    """Send a message to an agent session and wait for the reply."""
+    run_id = str(uuid4())
+    await openclaw_call(
+        "chat.send",
+        {
+            "sessionKey": session_key,
+            "message": message,
+            "deliver": False,
+            "idempotencyKey": run_id,
+        },
+        config=config,
+    )
+    await openclaw_call(
+        "agent.wait",
+        {"runId": run_id, "timeoutMs": _WAIT_TIMEOUT_MS},
+        config=config,
+    )
+    history = await openclaw_call(
+        "chat.history",
+        {"sessionKey": session_key, "limit": 4},
+        config=config,
+    )
+    return _extract_reply(history)
+
+
+# ---------------------------------------------------------------------------
+# Board temp chat
+# ---------------------------------------------------------------------------
+
+async def _board_lead_and_config(
     session: AsyncSession, board_id: UUID, actor: ActorContext
-) -> tuple[Board, Gateway, GatewayConfig]:
+) -> tuple[Board, Agent, GatewayConfig]:
     board = await Board.objects.by_id(board_id).first(session)
     if board is None:
         raise HTTPException(status_code=404, detail="Board not found.")
-
     if actor.actor_type == "user" and actor.user is not None:
         await require_board_access(session, user=actor.user, board=board, write=False)
     else:
         raise HTTPException(status_code=403)
 
+    agents = await Agent.objects.filter_by(board_id=board_id).all(session)
+    lead = next((a for a in agents if a.is_board_lead), None)
+    if lead is None or not lead.openclaw_session_id:
+        raise HTTPException(status_code=503, detail="Board has no lead agent.")
     if board.gateway_id is None:
         raise HTTPException(status_code=503, detail="Board has no gateway configured.")
-
     gateway = await Gateway.objects.by_id(board.gateway_id).first(session)
     if gateway is None:
         raise HTTPException(status_code=503, detail="Gateway not found.")
-
-    return board, gateway, GatewayConfig(url=gateway.url, token=gateway.token)
-
-
-async def _build_context_block(
-    session: AsyncSession,
-    board: Board,
-    board_id: UUID,
-) -> str:
-    """Build a concise board context block to prepend on first message."""
-
-    agents_result = await session.exec(
-        select(Agent).where(Agent.board_id == board_id)
-    )
-    agents = list(agents_result.all())
-
-    lead = next((a for a in agents if a.is_board_lead), None)
-    workers = [a for a in agents if not a.is_board_lead]
-
-    tasks_result = await session.exec(
-        select(Task)
-        .where(Task.board_id == board_id)
-        .order_by(Task.updated_at.desc())  # type: ignore[attr-defined]
-        .limit(60)
-    )
-    tasks = list(tasks_result.all())
-
-    def fmt(lst: list[Task], limit: int = 6) -> str:
-        if not lst:
-            return "  (none)"
-        lines = []
-        for t in lst[:limit]:
-            assignee = next(
-                (a.name for a in agents if str(a.id) == str(t.assigned_agent_id)),
-                "unassigned",
-            )
-            task_id_short = str(t.id)[:8]
-            lines.append(f"  • [{task_id_short}] {t.title} → {assignee}")
-        if len(lst) > limit:
-            lines.append(f"  … +{len(lst) - limit} more")
-        return "\n".join(lines)
-
-    agent_lines = []
-    if lead:
-        agent_lines.append(f"  • {lead.name} (lead, {lead.status})")
-    for w in workers:
-        agent_lines.append(f"  • {w.name} (worker, {w.status})")
-
-    by_status = {
-        "in_progress": [t for t in tasks if t.status == "in_progress"],
-        "review":      [t for t in tasks if t.status == "review"],
-        "inbox":       [t for t in tasks if t.status == "inbox"],
-        "blocked":     [t for t in tasks if t.status == "blocked"],
-    }
-
-    return f"""<board_context>
-Board: {board.name}
-
-Agents:
-{chr(10).join(agent_lines) if agent_lines else "  (none)"}
-
-In Progress ({len(by_status["in_progress"])}):
-{fmt(by_status["in_progress"])}
-
-In Review ({len(by_status["review"])}):
-{fmt(by_status["review"])}
-
-Inbox ({len(by_status["inbox"])}):
-{fmt(by_status["inbox"])}
-
-Blocked ({len(by_status["blocked"])}):
-{fmt(by_status["blocked"])}
-</board_context>
-
-You are a helpful assistant embedded in Mission Control. Answer questions about this board using the context above.
-This is a temporary private chat — messages are NOT stored and NOT visible to board agents.
-Be concise and direct. Now answer the user's question:"""
+    return board, lead, GatewayConfig(url=gateway.url, token=gateway.token)
 
 
 @router.post("")
-async def send_temp_chat(
+async def send_board_temp_chat(
     board_id: str,
     request: Request,
     actor: ActorContext = ACTOR_DEP,
     session: AsyncSession = SESSION_DEP,
 ) -> dict:
-    """Send a message and return the AI reply as JSON."""
     board_uuid = _parse_uuid(board_id)
-    board, gateway, config = await _get_board_and_gateway(session, board_uuid, actor)
+    board, lead, config = await _board_lead_and_config(session, board_uuid, actor)
 
     body = await request.json()
     message: str = (body.get("message") or "").strip()
-    is_first: bool = bool(body.get("is_first", False))
     if not message:
         raise HTTPException(status_code=422, detail="message is required.")
 
-    user_id = str(actor.user.id) if actor.user else "anon"
-    session_key = _session_key(board_id, user_id)
-
-    if is_first:
-        context = await _build_context_block(session, board, board_uuid)
-        full_message = f"{context}\n\n{message}"
-        try:
-            await gw_delete_session(session_key, config=config)
-        except OpenClawGatewayError:
-            pass
-    else:
-        full_message = message
+    actor_name = _actor_name(actor)
+    # Format exactly like board chat so the lead responds naturally,
+    # but include a note that this is temp (not stored, no reply needed via API)
+    formatted = (
+        f"BOARD CHAT (temporary — do NOT reply via the board memory API, "
+        f"just respond directly in this conversation)\n"
+        f"Board: {board.name}\n"
+        f"From: {actor_name}\n\n"
+        f"{message}"
+    )
 
     try:
-        run_id = str(uuid4())
-        send_result = await openclaw_call(
-            "chat.send",
-            {
-                "sessionKey": session_key,
-                "message": full_message,
-                "deliver": False,
-                "idempotencyKey": run_id,
-            },
+        reply = await _send_and_wait(
+            session_key=lead.openclaw_session_id,
+            message=formatted,
             config=config,
         )
-        # chat.send is async — returns {runId, status: "started"}
-        # Poll agent.wait to block until the turn completes (max 60s)
-        await openclaw_call(
-            "agent.wait",
-            {"runId": run_id, "timeoutMs": 60000},
-            config=config,
-        )
-        # Fetch the last assistant message from chat history
-        history = await openclaw_call(
-            "chat.history",
-            {"sessionKey": session_key, "limit": 3},
-            config=config,
-        )
-        text = _extract_last_assistant_text(history)
-        return {"text": text}
+        return {"text": reply}
     except OpenClawGatewayError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
     except Exception:  # noqa: BLE001
@@ -197,153 +166,42 @@ async def send_temp_chat(
 
 
 @router.delete("")
-async def clear_temp_chat(
-    board_id: str,
-    actor: ActorContext = ACTOR_DEP,
-    session: AsyncSession = SESSION_DEP,
-) -> dict:
-    """Delete the ephemeral session (clear history)."""
-    board_uuid = _parse_uuid(board_id)
-    board, gateway, config = await _get_board_and_gateway(session, board_uuid, actor)
-
-    user_id = str(actor.user.id) if actor.user else "anon"
-    try:
-        await gw_delete_session(_session_key(board_id, user_id), config=config)
-    except OpenClawGatewayError:
-        pass
+async def clear_board_temp_chat(board_id: str) -> dict:
+    # Nothing to clear — messages live in the lead's normal session history
+    # but don't affect board memory. No-op from our side.
     return {"ok": True}
-
-
-def _extract_last_assistant_text(history: object) -> str:
-    """Pull the last assistant message text out of a chat.history response."""
-    if not isinstance(history, dict):
-        return ""
-    messages = history.get("messages") or history.get("items") or history.get("history") or []
-    if not isinstance(messages, list):
-        return ""
-    # Walk in reverse to find the last assistant/agent message
-    for msg in reversed(messages):
-        if not isinstance(msg, dict):
-            continue
-        role = msg.get("role") or msg.get("type") or ""
-        if role in ("assistant", "agent", "model"):
-            # Try various content shapes
-            content = msg.get("content") or msg.get("text") or msg.get("message") or ""
-            if isinstance(content, list):
-                # Anthropic-style content blocks
-                parts = [b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"]
-                content = "\n".join(parts)
-            return str(content).strip()
-    return ""
-
-
-def _parse_uuid(value: str) -> UUID:
-    try:
-        return UUID(value)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid id.")
 
 
 # ---------------------------------------------------------------------------
 # Board-group temp chat
 # ---------------------------------------------------------------------------
 
-group_router = APIRouter(prefix="/board-groups/{group_id}/temp-chat", tags=["temp-chat"])
-
-
-def _group_session_key(group_id: str, user_id: str) -> str:
-    return f"subagent:temp-chat:group:{group_id}:{user_id}"
-
-
-async def _get_group_and_gateway(
+async def _group_lead_and_config(
     session: AsyncSession, group_id: UUID, actor: ActorContext
-) -> tuple[object, Gateway, GatewayConfig]:
+) -> tuple[object, Agent, GatewayConfig]:
     from app.models.board_groups import BoardGroup
     from app.services.organizations import get_active_membership
 
     group = await BoardGroup.objects.by_id(group_id).first(session)
     if group is None:
         raise HTTPException(status_code=404, detail="Board group not found.")
-
     if actor.actor_type != "user" or actor.user is None:
         raise HTTPException(status_code=403)
-
     member = await get_active_membership(session, actor.user)
     if member is None or member.organization_id != group.organization_id:
         raise HTTPException(status_code=403)
 
-    # Resolve gateway via group agent
     if group.group_agent_id is None:
         raise HTTPException(status_code=503, detail="Group has no agent configured.")
-
     group_agent = await Agent.objects.by_id(group.group_agent_id).first(session)
-    if group_agent is None or group_agent.gateway_id is None:
+    if group_agent is None or not group_agent.openclaw_session_id:
+        raise HTTPException(status_code=503, detail="Group agent not available.")
+    if group_agent.gateway_id is None:
         raise HTTPException(status_code=503, detail="Group agent has no gateway.")
-
     gateway = await Gateway.objects.by_id(group_agent.gateway_id).first(session)
     if gateway is None:
         raise HTTPException(status_code=503, detail="Gateway not found.")
-
-    return group, gateway, GatewayConfig(url=gateway.url, token=gateway.token)
-
-
-async def _build_group_context_block(
-    session: AsyncSession,
-    group: object,
-    group_id: UUID,
-) -> str:
-    from app.models.board_groups import BoardGroup
-    from app.models.boards import Board as BoardModel
-
-    boards_result = await session.exec(
-        select(BoardModel).where(BoardModel.board_group_id == group_id)
-    )
-    boards = list(boards_result.all())
-
-    tasks_result = await session.exec(
-        select(Task)
-        .where(Task.board_group_id == group_id)
-        .order_by(Task.updated_at.desc())  # type: ignore[attr-defined]
-        .limit(40)
-    )
-    group_tasks = list(tasks_result.all())
-
-    def fmt(lst: list[Task], limit: int = 5) -> str:
-        if not lst:
-            return "  (none)"
-        lines = [f"  • [{str(t.id)[:8]}] {t.title}" for t in lst[:limit]]
-        if len(lst) > limit:
-            lines.append(f"  … +{len(lst) - limit} more")
-        return "\n".join(lines)
-
-    by_status = {s: [t for t in group_tasks if t.status == s]
-                 for s in ("in_progress", "review", "inbox", "blocked")}
-
-    board_lines = "\n".join(f"  • {b.name} ({b.id})" for b in boards) or "  (none)"
-    group_name = getattr(group, "name", str(group_id))
-
-    return f"""<group_context>
-Group: {group_name}
-
-Linked boards ({len(boards)}):
-{board_lines}
-
-Group Tasks — In Progress ({len(by_status["in_progress"])}):
-{fmt(by_status["in_progress"])}
-
-Group Tasks — In Review ({len(by_status["review"])}):
-{fmt(by_status["review"])}
-
-Group Tasks — Inbox ({len(by_status["inbox"])}):
-{fmt(by_status["inbox"])}
-
-Group Tasks — Blocked ({len(by_status["blocked"])}):
-{fmt(by_status["blocked"])}
-</group_context>
-
-You are a helpful assistant embedded in Mission Control. Answer questions about this board group using the context above.
-This is a temporary private chat — not stored, not visible to agents.
-Be concise and direct. Now answer the user's question:"""
+    return group, group_agent, GatewayConfig(url=gateway.url, token=gateway.token)
 
 
 @group_router.post("")
@@ -354,51 +212,30 @@ async def send_group_temp_chat(
     session: AsyncSession = SESSION_DEP,
 ) -> dict:
     group_uuid = _parse_uuid(group_id)
-    group, gateway, config = await _get_group_and_gateway(session, group_uuid, actor)
+    group, group_agent, config = await _group_lead_and_config(session, group_uuid, actor)
 
     body = await request.json()
     message: str = (body.get("message") or "").strip()
-    is_first: bool = bool(body.get("is_first", False))
     if not message:
         raise HTTPException(status_code=422, detail="message is required.")
 
-    user_id = str(actor.user.id) if actor.user else "anon"
-    session_key = _group_session_key(group_id, user_id)
-
-    if is_first:
-        context = await _build_group_context_block(session, group, group_uuid)
-        full_message = f"{context}\n\n{message}"
-        try:
-            await gw_delete_session(session_key, config=config)
-        except OpenClawGatewayError:
-            pass
-    else:
-        full_message = message
+    actor_name = _actor_name(actor)
+    group_name = getattr(group, "name", str(group_id))
+    formatted = (
+        f"GROUP CHAT (temporary — do NOT reply via the board-group memory API, "
+        f"just respond directly in this conversation)\n"
+        f"Group: {group_name}\n"
+        f"From: {actor_name}\n\n"
+        f"{message}"
+    )
 
     try:
-        run_id = str(uuid4())
-        await openclaw_call(
-            "chat.send",
-            {
-                "sessionKey": session_key,
-                "message": full_message,
-                "deliver": False,
-                "idempotencyKey": run_id,
-            },
+        reply = await _send_and_wait(
+            session_key=group_agent.openclaw_session_id,
+            message=formatted,
             config=config,
         )
-        await openclaw_call(
-            "agent.wait",
-            {"runId": run_id, "timeoutMs": 60000},
-            config=config,
-        )
-        history = await openclaw_call(
-            "chat.history",
-            {"sessionKey": session_key, "limit": 3},
-            config=config,
-        )
-        text = _extract_last_assistant_text(history)
-        return {"text": text}
+        return {"text": reply}
     except OpenClawGatewayError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
     except Exception:  # noqa: BLE001
@@ -406,16 +243,12 @@ async def send_group_temp_chat(
 
 
 @group_router.delete("")
-async def clear_group_temp_chat(
-    group_id: str,
-    actor: ActorContext = ACTOR_DEP,
-    session: AsyncSession = SESSION_DEP,
-) -> dict:
-    group_uuid = _parse_uuid(group_id)
-    group, gateway, config = await _get_group_and_gateway(session, group_uuid, actor)
-    user_id = str(actor.user.id) if actor.user else "anon"
-    try:
-        await gw_delete_session(_group_session_key(group_id, user_id), config=config)
-    except OpenClawGatewayError:
-        pass
+async def clear_group_temp_chat(group_id: str) -> dict:
     return {"ok": True}
+
+
+def _parse_uuid(value: str) -> UUID:
+    try:
+        return UUID(value)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid id.")

@@ -206,7 +206,6 @@ export default function BoardGroupDetailPage() {
   const [isTempChatSending, setIsTempChatSending] = useState(false);
   const [tempChatError, setTempChatError] = useState<string | null>(null);
   const tempChatEndRef = useRef<HTMLDivElement | null>(null);
-  const isTempChatFirstRef = useRef(true);
 
   const snapshotQuery =
     useGetBoardGroupSnapshotApiV1BoardGroupsGroupIdSnapshotGet<
@@ -641,24 +640,17 @@ export default function BoardGroupDetailPage() {
     setIsTempChatSending(true);
     setTempChatError(null);
     setTempChatMessages((prev) => [...prev, { role: "user", text: trimmed }]);
-    const isFirst = isTempChatFirstRef.current;
-    if (isFirst) isTempChatFirstRef.current = false;
     try {
-      const res = await customFetch<{ text?: string; error?: string }>(
+      const res = await customFetch<{ text?: string }>(
         `/api/v1/board-groups/${groupId}/temp-chat`,
-        { method: "POST", body: JSON.stringify({ message: trimmed, is_first: isFirst }) },
+        { method: "POST", body: JSON.stringify({ message: trimmed }) },
       );
       const text = (res as { text?: string }).text ?? "";
-      const error = (res as { error?: string }).error;
-      if (error) {
-        setTempChatError(error);
-        setTempChatMessages((prev) => prev.slice(0, -1));
-        return false;
-      }
       setTempChatMessages((prev) => [...prev, { role: "assistant", text }]);
       return true;
-    } catch {
-      setTempChatError("Failed to get a response. Please try again.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to get a response. Please try again.";
+      setTempChatError(msg);
       setTempChatMessages((prev) => prev.slice(0, -1));
       return false;
     } finally {
@@ -666,15 +658,10 @@ export default function BoardGroupDetailPage() {
     }
   }, [groupId]);
 
-  const handleClearTempChat = useCallback(async () => {
-    if (!groupId) return;
+  const handleClearTempChat = useCallback(() => {
     setTempChatMessages([]);
-    isTempChatFirstRef.current = true;
     setTempChatError(null);
-    try {
-      await customFetch(`/api/v1/board-groups/${groupId}/temp-chat`, { method: "DELETE" });
-    } catch { /* ignore */ }
-  }, [groupId]);
+  }, []);
 
   // Group Agent callbacks
   const fetchGroupAgent = useCallback(async () => {
