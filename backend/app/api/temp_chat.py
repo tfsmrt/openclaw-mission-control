@@ -36,6 +36,156 @@ router = APIRouter(prefix="/boards/{board_id}/temp-chat", tags=["temp-chat"])
 group_router = APIRouter(prefix="/board-groups/{group_id}/temp-chat", tags=["temp-chat"])
 
 _WAIT_TIMEOUT_MS = 60_000
+_OFFLINE_THRESHOLD_SECONDS = 600  # 10 minutes
+
+
+async def _ensure_agent_ready(
+    session: AsyncSession,
+    *,
+    agent: Agent,
+    board: Board | None,
+) -> None:
+    """Make sure the agent is online with a valid token before sending.
+
+    Handles all common broken states:
+    - status stuck in 'updating'/'offline'/'provisioning'
+    - stale token (last_seen_at > 10 min ago)
+    - wake_attempts exhausted
+
+    This is more aggressive than the regular chat's wake_agent_if_offline:
+    it resets the agent state, regenerates the token if needed, and runs
+    a full lifecycle update.
+    """
+    from datetime import datetime, timezone, timedelta
+    from app.core.time import utcnow
+    from app.core.agent_tokens import generate_agent_token, hash_agent_token
+
+    now = datetime.now(timezone.utc)
+    last_seen = agent.last_seen_at
+    is_stale = (
+        last_seen is None
+        or (now - last_seen.replace(tzinfo=timezone.utc) if last_seen.tzinfo is None else now - last_seen).total_seconds() > _OFFLINE_THRESHOLD_SECONDS
+    )
+    is_stuck = agent.status in ("updating", "offline", "provisioning")
+
+    if not is_stale and not is_stuck:
+        return  # Agent looks healthy
+
+    from app.core.logging import get_logger
+    logger = get_logger(__name__)
+    logger.info(
+        "temp_chat.ensure_agent_ready",
+        extra={
+            "agent_name": agent.name,
+            "agent_id": str(agent.id),
+            "status": agent.status,
+            "is_stale": is_stale,
+            "is_stuck": is_stuck,
+        },
+    )
+
+    # Reset stuck state
+    agent.status = "online"
+    agent.provision_action = None
+    agent.last_provision_error = None
+    agent.wake_attempts = 0
+    agent.checkin_deadline_at = None
+    agent.updated_at = utcnow()
+
+    # Regenerate token and sync to DB
+    new_token = generate_agent_token()
+    agent.agent_token_hash = hash_agent_token(new_token)
+    session.add(agent)
+    await session.flush()
+
+    # Write token to TOOLS.md on host filesystem
+    _write_token_to_tools(agent, new_token)
+
+    # Run full lifecycle to wake the agent
+    try:
+        from app.models.gateways import Gateway as GatewayModel
+        from app.services.openclaw.lifecycle_orchestrator import AgentLifecycleOrchestrator
+
+        gateway = await GatewayModel.objects.by_id(agent.gateway_id).first(session)
+        if gateway is None:
+            await session.commit()
+            return
+
+        resolved_board = board
+        if resolved_board is None and agent.board_id is not None:
+            resolved_board = await Board.objects.by_id(agent.board_id).first(session)
+
+        await session.commit()
+
+        orchestrator = AgentLifecycleOrchestrator(session)
+        await orchestrator.run_lifecycle(
+            gateway=gateway,
+            agent_id=agent.id,
+            board=resolved_board,
+            user=None,
+            action="update",
+            wake=True,
+            deliver_wakeup=True,
+            raise_gateway_errors=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("temp_chat.ensure_agent_ready.failed", extra={"error": str(exc)})
+        await session.commit()
+
+
+def _write_token_to_tools(agent: Agent, token: str) -> None:
+    """Write the new token to the agent's TOOLS.md on the host filesystem."""
+    import os
+    import json
+    import re
+    from pathlib import Path
+
+    # Resolve workspace path from openclaw config
+    config_path = os.environ.get("OPENCLAW_CONFIG_PATH", "/root/.openclaw/openclaw.json")
+    remap_env = os.environ.get("WORKSPACE_ROOT_REMAP", "")
+
+    if not agent.openclaw_session_id:
+        return
+
+    # Extract config_id from session key: "agent:{config_id}:main"
+    parts = agent.openclaw_session_id.split(":")
+    if len(parts) < 2 or parts[0] != "agent":
+        return
+    config_id = parts[1]
+
+    # Try to find the workspace path
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return
+
+    workspace = None
+    for entry in config.get("agents", {}).get("list", []):
+        if entry.get("id") == config_id:
+            workspace = entry.get("workspace")
+            break
+
+    if not workspace:
+        return
+
+    # Apply workspace remap if configured
+    if "=" in remap_env:
+        src, dst = remap_env.split("=", 1)
+        if workspace.startswith(src.rstrip("/")):
+            workspace = dst.rstrip("/") + workspace[len(src.rstrip("/")):]
+
+    tools_path = Path(workspace) / "TOOLS.md"
+    if not tools_path.exists():
+        return
+
+    try:
+        content = tools_path.read_text()
+        content = re.sub(r'AUTH_TOKEN=[^\s`]+', f'AUTH_TOKEN={token}', content)
+        content = re.sub(r'X-Agent-Token: [^\s"\\]+', f'X-Agent-Token: {token}', content)
+        tools_path.write_text(content)
+    except OSError:
+        pass
 
 
 def _actor_name(actor: ActorContext) -> str:
@@ -207,9 +357,8 @@ async def send_board_temp_chat(
     )
 
     try:
-        # Wake the lead if offline (same as regular board chat)
-        dispatch = GatewayDispatchService(session)
-        await dispatch.wake_agent_if_offline(agent=lead, board=board)
+        # Ensure the lead is alive and has a valid token before sending
+        await _ensure_agent_ready(session, agent=lead, board=board)
 
         reply = await _send_and_wait(
             session_key=lead.openclaw_session_id,
@@ -288,8 +437,7 @@ async def send_group_temp_chat(
     )
 
     try:
-        dispatch = GatewayDispatchService(session)
-        await dispatch.wake_agent_if_offline(agent=group_agent, board=None)
+        await _ensure_agent_ready(session, agent=group_agent, board=None)
 
         reply = await _send_and_wait(
             session_key=group_agent.openclaw_session_id,

@@ -50,7 +50,7 @@ services:
       WORKSPACE_ROOT_REMAP: /root/.openclaw/workspace=/app/workspaces
     volumes:
       - /root/.openclaw/identity:/app/identity:rw
-      - /root/.openclaw/workspace:/app/workspaces:ro
+      - /root/.openclaw/workspace:/app/workspaces:rw
       - /root/.openclaw/openclaw.json:/etc/openclaw/config.json:ro
     depends_on:
       db:
