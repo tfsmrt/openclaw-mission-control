@@ -29,8 +29,11 @@ router = APIRouter(prefix="/boards/{board_id}/temp-chat", tags=["temp-chat"])
 
 
 def _session_key(board_id: str, user_id: str) -> str:
-    """Unique ephemeral session per user per board."""
-    return f"temp-chat:{board_id}:{user_id}"
+    """Unique ephemeral session per user per board.
+    Prefix with 'subagent:' so the gateway treats it as an isolated session
+    with no tools — avoids inheriting agent exec/file access.
+    """
+    return f"subagent:temp-chat:{board_id}:{user_id}"
 
 
 async def _get_board_and_gateway(
@@ -249,7 +252,7 @@ group_router = APIRouter(prefix="/board-groups/{group_id}/temp-chat", tags=["tem
 
 
 def _group_session_key(group_id: str, user_id: str) -> str:
-    return f"temp-chat:group:{group_id}:{user_id}"
+    return f"subagent:temp-chat:group:{group_id}:{user_id}"
 
 
 async def _get_group_and_gateway(
