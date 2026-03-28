@@ -153,13 +153,19 @@ async def _ensure_agent_ready(
             except Exception:  # noqa: BLE001
                 pre_wake_seq = 0
 
-            # Poll for up to 40s until the agent has processed the wakeup
-            for _ in range(8):
+            # Poll until the agent finishes its wakeup/bootstrap sequence.
+            # Strategy: wait until max_seq has been stable (not increasing) for
+            # two consecutive checks — means the agent has stopped generating.
+            last_seq = pre_wake_seq
+            stable_count = 0
+            agent_seen = False
+
+            for _ in range(16):  # up to 80s
                 await asyncio.sleep(5)
                 try:
                     post_hist = await openclaw_call(
                         "chat.history",
-                        {"sessionKey": agent.openclaw_session_id, "limit": 3},
+                        {"sessionKey": agent.openclaw_session_id, "limit": 5},
                         config=config,
                     )
                     post_msgs = post_hist.get("messages") or [] if isinstance(post_hist, dict) else []
@@ -167,18 +173,26 @@ async def _ensure_agent_ready(
                         ((m.get("__openclaw") or {}).get("seq", 0) for m in post_msgs),
                         default=0,
                     )
-                    # Agent has responded to wakeup if a new assistant message appeared
-                    new_assistant = any(
-                        m.get("role") == "assistant"
-                        and (m.get("__openclaw") or {}).get("seq", 0) > pre_wake_seq
-                        for m in post_msgs
-                        if isinstance(m, dict)
-                    )
-                    if new_assistant or post_seq > pre_wake_seq + 2:
-                        logger.info("temp_chat.ensure_agent_ready.agent_alive", extra={
-                            "agent_name": agent.name, "pre_wake_seq": pre_wake_seq, "post_seq": post_seq,
-                        })
-                        break
+
+                    # Check if agent has appeared at all
+                    if not agent_seen:
+                        agent_seen = post_seq > pre_wake_seq
+
+                    if agent_seen:
+                        if post_seq == last_seq:
+                            stable_count += 1
+                        else:
+                            stable_count = 0
+                            last_seq = post_seq
+
+                        # Two stable checks = bootstrap done
+                        if stable_count >= 2:
+                            logger.info("temp_chat.ensure_agent_ready.agent_stable", extra={
+                                "agent_name": agent.name, "final_seq": post_seq,
+                            })
+                            break
+                    else:
+                        last_seq = post_seq
                 except Exception:  # noqa: BLE001
                     continue
 
