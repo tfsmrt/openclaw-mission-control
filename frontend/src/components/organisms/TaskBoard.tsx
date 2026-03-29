@@ -115,7 +115,7 @@ const resolveDueState = (
     day: "numeric",
   });
 
-  const isOverdue = task.status !== "done" && date.getTime() < Date.now();
+  const isOverdue = task.status !== "done" && task.status !== "archived" && date.getTime() < Date.now();
   return {
     due: isOverdue ? `Overdue · ${dueLabel}` : dueLabel,
     isOverdue,
