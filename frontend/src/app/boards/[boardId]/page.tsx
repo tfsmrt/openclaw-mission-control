@@ -4775,18 +4775,6 @@ export default function BoardDetailPage() {
                 disabled={!selectedTask || isSavingTask || !canWrite}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-quiet">
-                Custom fields
-              </label>
-              <TaskCustomFieldsEditor
-                definitions={boardCustomFieldDefinitions}
-                values={editCustomFieldValues}
-                setValues={setEditCustomFieldValues}
-                isLoading={customFieldDefinitionsQuery.isLoading}
-                disabled={!selectedTask || isSavingTask || !canWrite}
-              />
-            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-xs font-semibold uppercase tracking-wider text-quiet">
@@ -4870,6 +4858,18 @@ export default function BoardDetailPage() {
                   Add agents to assign tasks.
                 </p>
               ) : null}
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-quiet">
+                Custom fields
+              </label>
+              <TaskCustomFieldsEditor
+                definitions={boardCustomFieldDefinitions}
+                values={editCustomFieldValues}
+                setValues={setEditCustomFieldValues}
+                isLoading={customFieldDefinitionsQuery.isLoading}
+                disabled={!selectedTask || isSavingTask || !canWrite}
+              />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
@@ -5113,18 +5113,6 @@ export default function BoardDetailPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-strong">
-                Custom fields
-              </label>
-              <TaskCustomFieldsEditor
-                definitions={boardCustomFieldDefinitions}
-                values={createCustomFieldValues}
-                setValues={setCreateCustomFieldValues}
-                isLoading={customFieldDefinitionsQuery.isLoading}
-                disabled={!canWrite || isCreating}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-strong">
                 Priority
               </label>
               <Select
@@ -5152,6 +5140,18 @@ export default function BoardDetailPage() {
                 type="date"
                 value={createDueDate}
                 onChange={(event) => setCreateDueDate(event.target.value)}
+                disabled={!canWrite || isCreating}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-strong">
+                Custom fields
+              </label>
+              <TaskCustomFieldsEditor
+                definitions={boardCustomFieldDefinitions}
+                values={createCustomFieldValues}
+                setValues={setCreateCustomFieldValues}
+                isLoading={customFieldDefinitionsQuery.isLoading}
                 disabled={!canWrite || isCreating}
               />
             </div>
