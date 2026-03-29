@@ -144,7 +144,7 @@ import {
 
 type Board = BoardRead;
 
-type TaskStatus = "inbox" | "in_progress" | "review" | "done" | "blocked";
+type TaskStatus = "inbox" | "in_progress" | "review" | "done" | "blocked" | "archived";
 
 type TaskCustomFieldPayload = {
   custom_field_values?: TaskCustomFieldValues;
@@ -526,8 +526,8 @@ const statusOptions = [
   { value: "inbox", label: "Inbox" },
   { value: "in_progress", label: "In progress" },
   { value: "review", label: "Review" },
-  { value: "blocked", label: "Blocked" },
   { value: "done", label: "Done" },
+  { value: "archived", label: "Archived" },
 ];
 
 const SSE_RECONNECT_BACKOFF = {
@@ -3062,6 +3062,8 @@ export default function BoardDetailPage() {
         return "bg-[color:var(--success-soft)] text-success";
       case "blocked":
         return "bg-[color:var(--status-blocked-bg)] text-[color:var(--status-blocked-text)]";
+      case "archived":
+        return "bg-[color:var(--status-blocked-bg)] text-[color:var(--status-blocked-text)] opacity-60";
       default:
         return "bg-[color:var(--surface-strong)] text-muted";
     }

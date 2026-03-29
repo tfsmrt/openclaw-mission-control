@@ -164,6 +164,7 @@ const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
   { value: "in_progress", label: "In Progress" },
   { value: "review", label: "Review" },
   { value: "done", label: "Done" },
+  { value: "archived", label: "Archived" },
 ];
 
 export default function BoardGroupDetailPage() {

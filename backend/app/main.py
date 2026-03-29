@@ -12,6 +12,7 @@ from fastapi_pagination import add_pagination
 
 from app.api.activity import router as activity_router
 from app.services.openclaw.agent_watchdog import watchdog_loop
+from app.services.task_auto_archive import auto_archive_loop
 from app.api.agent import router as agent_router
 from app.api.agents import router as agents_router
 from app.api.approvals import router as approvals_router
@@ -457,13 +458,21 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     watchdog_task = asyncio.create_task(watchdog_loop(), name="agent-watchdog")
     logger.info("app.lifecycle.watchdog.started")
 
+    archive_task = asyncio.create_task(auto_archive_loop(), name="task-auto-archive")
+    logger.info("app.lifecycle.auto_archive.started")
+
     logger.info("app.lifecycle.started")
     try:
         yield
     finally:
         watchdog_task.cancel()
+        archive_task.cancel()
         try:
             await watchdog_task
+        except asyncio.CancelledError:
+            pass
+        try:
+            await archive_task
         except asyncio.CancelledError:
             pass
         logger.info("app.lifecycle.stopped")

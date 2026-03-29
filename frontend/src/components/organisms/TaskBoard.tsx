@@ -14,7 +14,7 @@ import { TaskCard } from "@/components/molecules/TaskCard";
 import { parseApiDatetime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 
-type TaskStatus = "inbox" | "in_progress" | "review" | "done" | "blocked";
+type TaskStatus = "inbox" | "in_progress" | "review" | "done" | "blocked" | "archived";
 export type { TaskStatus };
 
 type Task = {
@@ -87,11 +87,11 @@ const columns: Array<{
     badge: "status-done border",
   },
   {
-    title: "Blocked",
-    status: "blocked",
+    title: "Archived",
+    status: "archived",
     dot: "bg-[color:var(--status-blocked-dot)]",
     accent: "hover:border-[color:var(--status-blocked-hover-border)] hover:bg-[color:var(--status-blocked-hover-bg)]",
-    text: "group-hover:text-[color:var(--status-blocked-text)] text-muted",
+    text: "group-hover:text-[color:var(--status-blocked-text)] text-muted opacity-60",
     badge: "status-blocked border",
   },
 ];
@@ -384,8 +384,9 @@ export const TaskBoard = memo(function TaskBoard({
       inbox: [],
       in_progress: [],
       review: [],
-      blocked: [],
       done: [],
+      blocked: [],
+      archived: [],
     };
     for (const column of columns) {
       buckets[column.status] = [];

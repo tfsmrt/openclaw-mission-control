@@ -14,4 +14,5 @@ export const TaskReadStatus = {
   review: "review",
   done: "done",
   blocked: "blocked",
+  archived: "archived",
 } as const;
