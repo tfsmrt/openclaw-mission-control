@@ -534,26 +534,42 @@ async def _resolve_agent_auth_token(
         return None, True, False, previous_hash
 
     if not auth_token:
-        auth_token = await _rotate_agent_token(ctx.session, agent)
-        rotated = True
+        _append_sync_error(
+            result,
+            agent=agent,
+            board=board,
+            message=(
+                "Skipping agent update: AUTH_TOKEN missing in gateway TOOLS.md "
+                "(use --rotate-tokens for explicit re-key)."
+            ),
+        )
+        return None, False, False, previous_hash
     elif agent.agent_token_hash and not verify_agent_token(
         auth_token,
         agent.agent_token_hash,
     ):
-        auth_token = await _rotate_agent_token(ctx.session, agent)
-        rotated = True
+        _append_sync_error(
+            result,
+            agent=agent,
+            board=board,
+            message=(
+                "Skipping agent update: AUTH_TOKEN mismatch between gateway TOOLS.md "
+                "and backend hash (use --rotate-tokens for explicit re-key)."
+            ),
+        )
+        return None, False, False, previous_hash
     return auth_token, False, rotated, previous_hash
 
 
 async def _restore_rotated_token_hash(
     session: AsyncSession,
-    agent: Agent,
+    agent_id: UUID,
     previous_hash: str | None,
 ) -> None:
     # Rotation can happen before gateway file writes complete. If a sync attempt
     # fails, restore the prior hash to avoid DB/file token drift.
     await session.rollback()
-    current = await session.get(Agent, agent.id)
+    current = await session.get(Agent, agent_id)
     if current is None:
         return
     current.agent_token_hash = previous_hash
@@ -611,7 +627,8 @@ async def _sync_one_agent(
         result.agents_skipped += 1
         _append_sync_error(result, agent=agent, board=board, message=str(exc))
         if rotated:
-            await _restore_rotated_token_hash(ctx.session, agent, previous_hash)
+            await _restore_rotated_token_hash(ctx.session, agent.id, previous_hash)
+            return True
         return True
     except (OSError, RuntimeError, ValueError) as exc:  # pragma: no cover
         result.agents_skipped += 1
@@ -622,7 +639,8 @@ async def _sync_one_agent(
             message=f"Failed to sync templates: {exc}",
         )
         if rotated:
-            await _restore_rotated_token_hash(ctx.session, agent, previous_hash)
+            await _restore_rotated_token_hash(ctx.session, agent.id, previous_hash)
+            return True
         return False
     except HTTPException as exc:
         result.agents_skipped += 1
@@ -633,7 +651,8 @@ async def _sync_one_agent(
             message=f"Failed to sync templates: {exc.detail}",
         )
         if rotated:
-            await _restore_rotated_token_hash(ctx.session, agent, previous_hash)
+            await _restore_rotated_token_hash(ctx.session, agent.id, previous_hash)
+            return True
         return False
     else:
         return False
@@ -703,7 +722,7 @@ async def _sync_main_agent(
     except TimeoutError as exc:  # pragma: no cover - gateway/network dependent
         _append_sync_error(result, agent=main_agent, message=str(exc))
         if rotated:
-            await _restore_rotated_token_hash(ctx.session, main_agent, previous_hash)
+            await _restore_rotated_token_hash(ctx.session, main_agent.id, previous_hash)
         stop_sync = True
     except (OSError, RuntimeError, ValueError) as exc:  # pragma: no cover
         _append_sync_error(
@@ -712,7 +731,7 @@ async def _sync_main_agent(
             message=f"Failed to sync gateway agent templates: {exc}",
         )
         if rotated:
-            await _restore_rotated_token_hash(ctx.session, main_agent, previous_hash)
+            await _restore_rotated_token_hash(ctx.session, main_agent.id, previous_hash)
     except HTTPException as exc:
         _append_sync_error(
             result,
@@ -720,7 +739,7 @@ async def _sync_main_agent(
             message=f"Failed to sync gateway agent templates: {exc.detail}",
         )
         if rotated:
-            await _restore_rotated_token_hash(ctx.session, main_agent, previous_hash)
+            await _restore_rotated_token_hash(ctx.session, main_agent.id, previous_hash)
     else:
         result.main_updated = True
     return stop_sync

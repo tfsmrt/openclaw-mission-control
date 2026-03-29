@@ -25,7 +25,10 @@ from app.services.openclaw.db_agent_state import (
     mint_agent_token,
 )
 from app.services.openclaw.db_service import OpenClawDBService
+from app.services.openclaw.gateway_resolver import optional_gateway_client_config
 from app.services.openclaw.gateway_rpc import OpenClawGatewayError
+from app.services.openclaw.internal.agent_key import agent_key
+from app.services.openclaw.provisioning import OpenClawGatewayControlPlane
 from app.services.openclaw.lifecycle_queue import (
     QueuedAgentLifecycleReconcile,
     enqueue_lifecycle_reconcile,
@@ -51,6 +54,47 @@ class AgentLifecycleOrchestrator(OpenClawDBService):
         if agent is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
         return agent
+
+    @staticmethod
+    def _extract_file_content(payload: object) -> str | None:
+        if isinstance(payload, str):
+            return payload
+        if isinstance(payload, dict):
+            content = payload.get("content")
+            if isinstance(content, str):
+                return content
+            file_obj = payload.get("file")
+            if isinstance(file_obj, dict):
+                nested = file_obj.get("content")
+                if isinstance(nested, str):
+                    return nested
+        return None
+
+    @staticmethod
+    def _parse_auth_token_from_tools(content: str) -> str | None:
+        for raw in content.splitlines():
+            line = raw.strip()
+            if line.startswith("AUTH_TOKEN="):
+                token = line.split("=", 1)[1].strip().strip("`")
+                return token or None
+        return None
+
+    async def _resolve_update_auth_token(self, *, gateway: Gateway, agent: Agent) -> str | None:
+        config = optional_gateway_client_config(gateway)
+        if config is None:
+            return None
+        control_plane = OpenClawGatewayControlPlane(config)
+        try:
+            payload = await control_plane.get_agent_file_payload(
+                agent_id=agent_key(agent),
+                name="TOOLS.md",
+            )
+        except OpenClawGatewayError:
+            return None
+        tools = self._extract_file_content(payload)
+        if not tools:
+            return None
+        return self._parse_auth_token_from_tools(tools)
 
     async def run_lifecycle(
         self,
@@ -87,7 +131,19 @@ class AgentLifecycleOrchestrator(OpenClawDBService):
                     ),
                 )
 
-        raw_token = auth_token or mint_agent_token(locked)
+        raw_token = auth_token
+        if not raw_token and action == "update":
+            raw_token = await self._resolve_update_auth_token(gateway=gateway, agent=locked)
+            if not raw_token:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Update requires an existing AUTH_TOKEN in gateway TOOLS.md; "
+                        "implicit token rotation on update is disabled."
+                    ),
+                )
+        if not raw_token:
+            raw_token = mint_agent_token(locked)
         mark_provision_requested(
             locked,
             action=action,
