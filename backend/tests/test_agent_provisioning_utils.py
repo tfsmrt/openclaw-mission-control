@@ -10,7 +10,10 @@ import pytest
 
 import app.services.openclaw.internal.agent_key as agent_key_mod
 import app.services.openclaw.provisioning as agent_provisioning
-from app.services.openclaw.provisioning_db import AgentLifecycleService
+from app.services.openclaw.provisioning_db import (
+    AgentLifecycleService,
+    _resolve_agent_auth_token,
+)
 from app.services.openclaw.shared import GatewayAgentIdentity
 from app.services.souls_directory import SoulRef
 
@@ -31,6 +34,7 @@ def test_slugify_falls_back_to_uuid_hex(monkeypatch):
 @dataclass
 class _AgentStub:
     name: str
+    agent_token_hash: str | None = None
     openclaw_session_id: str | None = None
     heartbeat_config: dict | None = None
     is_board_lead: bool = False
@@ -69,6 +73,53 @@ def test_agent_lifecycle_workspace_path_preserves_tilde_in_workspace_root():
         AgentLifecycleService.workspace_path("Alice", "~/.openclaw")
         == "~/.openclaw/workspace-alice"
     )
+
+
+@pytest.mark.asyncio
+async def test_resolve_agent_auth_token_forces_rotation_when_rotate_tokens_true(monkeypatch):
+    agent = _AgentStub(name="Alice")
+    rotate_spy = {"called": False}
+
+    async def fake_rotate_agent_token(session, agent_arg):
+        rotate_spy["called"] = True
+        return "rotated-token"
+
+    async def fake_get_existing_auth_token(*args, **kwargs):
+        return "existing-token"
+
+    monkeypatch.setattr(
+        "app.services.openclaw.provisioning_db._rotate_agent_token",
+        fake_rotate_agent_token,
+    )
+    monkeypatch.setattr(
+        "app.services.openclaw.provisioning_db._get_existing_auth_token",
+        fake_get_existing_auth_token,
+    )
+
+    from types import SimpleNamespace
+
+    ctx = SimpleNamespace(
+        session=None,
+        gateway=None,
+        control_plane=None,
+        backoff=None,
+        options=SimpleNamespace(rotate_tokens=True, user=None, force_bootstrap=False, reset_sessions=False),
+    )
+    result = SimpleNamespace(errors=[])
+
+    token, fatal, rotated, previous_hash = await _resolve_agent_auth_token(
+        ctx,
+        result,
+        agent,
+        None,
+        agent_gateway_id="agent-alice",
+    )
+
+    assert rotate_spy["called"]
+    assert token == "rotated-token"
+    assert fatal is False
+    assert rotated is True
+    assert previous_hash is None
 
 
 def test_templates_root_points_to_repo_templates_dir():

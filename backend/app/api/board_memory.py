@@ -75,6 +75,28 @@ def _serialize_memory(memory: BoardMemory) -> dict[str, object]:
     ).model_dump(mode="json")
 
 
+def _quote_safe_board_reply_instructions(*, base_url: str, board_id: UUID) -> str:
+    post_url = f"{base_url}/api/v1/agent/boards/{board_id}/memory"
+    return (
+        "MANDATORY: execute the API post now; do not reply in OpenClaw chat.\n"
+        "Do not return code blocks or explanations.\n"
+        "Reply via board chat (quote-safe; avoid inline JSON with single quotes):\n"
+        f"POST {post_url}\n"
+        "Use this pattern exactly:\n"
+        "REPLY_TEXT=$(cat <<'EOF'\n"
+        "...\n"
+        "EOF\n"
+        ")\n"
+        "AUTH_TOKEN=$(grep '^AUTH_TOKEN=' TOOLS.md | head -n1 | cut -d= -f2 | tr -d '`')\n"
+        "jq -n --arg content \"$REPLY_TEXT\" "
+        "'{\"content\":$content,\"tags\":[\"chat\"]}' | \\\n"
+        f"curl -fsS -X POST \"{post_url}\" \\\n"
+        "  -H \"X-Agent-Token: $AUTH_TOKEN\" \\\n"
+        "  -H \"Content-Type: application/json\" \\\n"
+        "  --data-binary @-"
+    )
+
+
 async def _fetch_memory_events(
     session: AsyncSession,
     board_id: UUID,
@@ -171,7 +193,7 @@ async def _notify_chat_targets(
     command = normalized.lower()
     # Special-case control commands to reach all board agents.
     # These are intended to be parsed verbatim by agent runtimes.
-    if command in {"/pause", "/resume"}:
+    if command in {"/pause", "/resume", "/new"}:
         await _send_control_command(
             session=session,
             board=board,
@@ -205,9 +227,7 @@ async def _notify_chat_targets(
             f"Board: {board.name}\n"
             f"From: {actor_name}\n\n"
             f"{snippet}\n\n"
-            "Reply via board chat:\n"
-            f"POST {base_url}/api/v1/agent/boards/{board.id}/memory\n"
-            'Body: {"content":"...","tags":["chat"]}'
+            f"{_quote_safe_board_reply_instructions(base_url=base_url, board_id=board.id)}"
         )
         error = await dispatch.try_send_agent_message(
             session_key=agent.openclaw_session_id,
