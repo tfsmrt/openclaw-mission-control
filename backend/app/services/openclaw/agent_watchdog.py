@@ -28,7 +28,7 @@ from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.services.openclaw.constants import MAX_WAKE_ATTEMPTS_WITHOUT_CHECKIN, OFFLINE_AFTER
 from app.services.openclaw.gateway_resolver import optional_gateway_client_config
-from app.services.openclaw.gateway_rpc import OpenClawGatewayError
+from app.services.openclaw.gateway_rpc import OpenClawGatewayError, openclaw_call
 from app.services.openclaw.internal.agent_key import agent_key
 from app.services.openclaw.lifecycle_orchestrator import AgentLifecycleOrchestrator
 from app.services.openclaw.provisioning import OpenClawGatewayControlPlane
@@ -80,6 +80,14 @@ def _parse_auth_token_from_tools(content: str) -> str | None:
 async def _resolve_auth_token_for_agent(*, gateway: Gateway, agent: Agent) -> str | None:
     config = optional_gateway_client_config(gateway)
     if config is None:
+        logger.warning(
+            "watchdog.auto_recover.auth_token_unavailable",
+            extra={
+                "agent_id": str(agent.id),
+                "agent_name": agent.name,
+                "reason": "missing_gateway_client_config",
+            },
+        )
         return None
     control_plane = OpenClawGatewayControlPlane(config)
     try:
@@ -87,12 +95,39 @@ async def _resolve_auth_token_for_agent(*, gateway: Gateway, agent: Agent) -> st
             agent_id=agent_key(agent),
             name="TOOLS.md",
         )
-    except OpenClawGatewayError:
+    except OpenClawGatewayError as exc:
+        logger.warning(
+            "watchdog.auto_recover.auth_token_unavailable",
+            extra={
+                "agent_id": str(agent.id),
+                "agent_name": agent.name,
+                "reason": "tools_read_failed",
+                "error": str(exc),
+            },
+        )
         return None
     content = _extract_file_content(payload)
     if not content:
+        logger.warning(
+            "watchdog.auto_recover.auth_token_unavailable",
+            extra={
+                "agent_id": str(agent.id),
+                "agent_name": agent.name,
+                "reason": "tools_content_missing",
+            },
+        )
         return None
-    return _parse_auth_token_from_tools(content)
+    token = _parse_auth_token_from_tools(content)
+    if not token:
+        logger.warning(
+            "watchdog.auto_recover.auth_token_unavailable",
+            extra={
+                "agent_id": str(agent.id),
+                "agent_name": agent.name,
+                "reason": "auth_token_not_found",
+            },
+        )
+    return token
 
 
 def _needs_auto_recover(agent: Agent, *, now: datetime) -> bool:
@@ -105,6 +140,36 @@ def _needs_auto_recover(agent: Agent, *, now: datetime) -> bool:
     if agent.last_seen_at is None:
         return True
     return (now - agent.last_seen_at) > OFFLINE_AFTER
+
+
+async def _latest_gateway_session_activity(
+    *,
+    gateway: Gateway,
+    session_key: str,
+) -> datetime | None:
+    if not session_key:
+        return None
+    config = optional_gateway_client_config(gateway)
+    if config is None:
+        return None
+    try:
+        payload = await openclaw_call("sessions.list", {}, config=config)
+    except OpenClawGatewayError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    sessions = payload.get("sessions")
+    if not isinstance(sessions, list):
+        return None
+    for item in sessions:
+        if not isinstance(item, dict):
+            continue
+        if item.get("key") != session_key:
+            continue
+        updated_at_ms = item.get("updatedAt")
+        if isinstance(updated_at_ms, (int, float)):
+            return datetime.utcfromtimestamp(float(updated_at_ms) / 1000.0)
+    return None
 
 
 async def _recover_unchecked_agents(now: datetime) -> int:
@@ -143,6 +208,30 @@ async def _recover_single_agent(*, agent_id: UUID, now: datetime) -> bool:
         gateway = gateway_result.scalar_one_or_none()
         if gateway is None:
             return False
+
+        session_activity = await _latest_gateway_session_activity(
+            gateway=gateway,
+            session_key=agent.openclaw_session_id or "",
+        )
+        if session_activity is not None and (
+            agent.last_seen_at is None or session_activity > agent.last_seen_at
+        ):
+            agent.last_seen_at = session_activity
+            agent.status = "online"
+            agent.checkin_deadline_at = None
+            agent.last_provision_error = None
+            agent.updated_at = now
+            db.add(agent)
+            await db.commit()
+            logger.info(
+                "watchdog.auto_recover.session_activity_seen",
+                extra={
+                    "agent_id": str(agent.id),
+                    "agent_name": agent.name,
+                    "session_activity": session_activity.isoformat(),
+                },
+            )
+            return True
 
         auth_token = await _resolve_auth_token_for_agent(gateway=gateway, agent=agent)
         if not auth_token:
@@ -183,7 +272,8 @@ async def _recover_single_agent(*, agent_id: UUID, now: datetime) -> bool:
                 action="update",
                 auth_token=auth_token,
                 force_bootstrap=False,
-                reset_session=True,
+                # Preserve session context during retries to avoid reset churn.
+                reset_session=False,
                 wake=True,
                 deliver_wakeup=True,
                 wakeup_verb="updated",

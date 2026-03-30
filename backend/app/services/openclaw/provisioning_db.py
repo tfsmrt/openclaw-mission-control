@@ -608,6 +608,7 @@ async def _sync_one_agent(
                     action="update",
                     auth_token=auth_token,
                     force_bootstrap=ctx.options.force_bootstrap,
+                    overwrite=ctx.options.overwrite,
                     reset_session=ctx.options.reset_sessions,
                     wake=False,
                     deliver_wakeup=False,

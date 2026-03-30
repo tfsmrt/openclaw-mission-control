@@ -58,6 +58,13 @@ def _parse_auth_token_from_tools(content: str) -> str | None:
 async def _resolve_reconcile_auth_token(*, gateway: Gateway, agent: Agent) -> str | None:
     config = optional_gateway_client_config(gateway)
     if config is None:
+        logger.warning(
+            "lifecycle.reconcile.auth_token_unavailable",
+            extra={
+                "agent_id": str(agent.id),
+                "reason": "missing_gateway_client_config",
+            },
+        )
         return None
     control_plane = OpenClawGatewayControlPlane(config)
     try:
@@ -65,12 +72,36 @@ async def _resolve_reconcile_auth_token(*, gateway: Gateway, agent: Agent) -> st
             agent_id=agent_key(agent),
             name="TOOLS.md",
         )
-    except OpenClawGatewayError:
+    except OpenClawGatewayError as exc:
+        logger.warning(
+            "lifecycle.reconcile.auth_token_unavailable",
+            extra={
+                "agent_id": str(agent.id),
+                "reason": "tools_read_failed",
+                "error": str(exc),
+            },
+        )
         return None
     content = _extract_file_content(payload)
     if not content:
+        logger.warning(
+            "lifecycle.reconcile.auth_token_unavailable",
+            extra={
+                "agent_id": str(agent.id),
+                "reason": "tools_content_missing",
+            },
+        )
         return None
-    return _parse_auth_token_from_tools(content)
+    token = _parse_auth_token_from_tools(content)
+    if not token:
+        logger.warning(
+            "lifecycle.reconcile.auth_token_unavailable",
+            extra={
+                "agent_id": str(agent.id),
+                "reason": "auth_token_not_found",
+            },
+        )
+    return token
 
 
 async def process_lifecycle_queue_task(task: QueuedTask) -> None:
@@ -184,7 +215,8 @@ async def process_lifecycle_queue_task(task: QueuedTask) -> None:
                 action="update",
                 auth_token=auth_token,
                 force_bootstrap=False,
-                reset_session=True,
+                # Preserve session context during retries to avoid reset churn.
+                reset_session=False,
                 wake=True,
                 deliver_wakeup=True,
                 wakeup_verb="updated",

@@ -670,6 +670,29 @@ def test_updated_agent_list_preserves_raw_heartbeat_extra_fields():
     assert updated == raw_list
 
 
+def test_updated_agent_list_preserves_root_mapped_workspace_path(monkeypatch):
+    monkeypatch.setenv("WORKSPACE_ROOT_REMAP", "/home/cronjev/.openclaw/workspace=/app/workspaces")
+    raw_list = [
+        {
+            "id": "agent-1",
+            "workspace": "/app/workspaces/workspace-agent-1",
+            "heartbeat": {
+                "every": "10m",
+                "target": "last",
+                "includeReasoning": False,
+            },
+        }
+    ]
+    entry_by_id = {
+        "agent-1": (
+            "/home/cronjev/.openclaw/workspace/workspace-agent-1",
+            {"every": "10m", "target": "last", "includeReasoning": False},
+        )
+    }
+    updated = agent_provisioning._updated_agent_list(raw_list, entry_by_id)
+    assert updated == raw_list
+
+
 # no-op: keep tilde in workspace root to preserve user-input format and avoid flip-flops.
 
 

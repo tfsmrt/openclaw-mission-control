@@ -35,11 +35,15 @@ from app.services.openclaw.lifecycle_queue import (
 )
 from app.services.openclaw.provisioning import OpenClawGatewayProvisioner
 from app.services.organizations import get_org_owner_user
+from app.core.logging import get_logger
 
 if TYPE_CHECKING:
     from sqlmodel.ext.asyncio.session import AsyncSession
 
     from app.models.users import User
+
+
+logger = get_logger(__name__)
 
 
 class AgentLifecycleOrchestrator(OpenClawDBService):
@@ -82,6 +86,13 @@ class AgentLifecycleOrchestrator(OpenClawDBService):
     async def _resolve_update_auth_token(self, *, gateway: Gateway, agent: Agent) -> str | None:
         config = optional_gateway_client_config(gateway)
         if config is None:
+            logger.warning(
+                "lifecycle.orchestrator.auth_token_unavailable",
+                extra={
+                    "agent_id": str(agent.id),
+                    "reason": "missing_gateway_client_config",
+                },
+            )
             return None
         control_plane = OpenClawGatewayControlPlane(config)
         try:
@@ -89,12 +100,36 @@ class AgentLifecycleOrchestrator(OpenClawDBService):
                 agent_id=agent_key(agent),
                 name="TOOLS.md",
             )
-        except OpenClawGatewayError:
+        except OpenClawGatewayError as exc:
+            logger.warning(
+                "lifecycle.orchestrator.auth_token_unavailable",
+                extra={
+                    "agent_id": str(agent.id),
+                    "reason": "tools_read_failed",
+                    "error": str(exc),
+                },
+            )
             return None
         tools = self._extract_file_content(payload)
         if not tools:
+            logger.warning(
+                "lifecycle.orchestrator.auth_token_unavailable",
+                extra={
+                    "agent_id": str(agent.id),
+                    "reason": "tools_content_missing",
+                },
+            )
             return None
-        return self._parse_auth_token_from_tools(tools)
+        token = self._parse_auth_token_from_tools(tools)
+        if not token:
+            logger.warning(
+                "lifecycle.orchestrator.auth_token_unavailable",
+                extra={
+                    "agent_id": str(agent.id),
+                    "reason": "auth_token_not_found",
+                },
+            )
+        return token
 
     async def run_lifecycle(
         self,
@@ -106,6 +141,7 @@ class AgentLifecycleOrchestrator(OpenClawDBService):
         action: str,
         auth_token: str | None = None,
         force_bootstrap: bool = False,
+        overwrite: bool = False,
         reset_session: bool = False,
         wake: bool = True,
         deliver_wakeup: bool = True,
@@ -199,6 +235,7 @@ class AgentLifecycleOrchestrator(OpenClawDBService):
                 user=template_user,
                 action=action,
                 force_bootstrap=force_bootstrap,
+                overwrite=overwrite,
                 reset_session=reset_session,
                 wake=wake,
                 deliver_wakeup=deliver_wakeup,

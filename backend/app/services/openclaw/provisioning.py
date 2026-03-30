@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -694,7 +695,13 @@ class OpenClawGatewayControlPlane(GatewayControlPlane):
         # Skip config.patch entirely when nothing changed — avoids an unnecessary
         # gateway SIGUSR1 restart that rotates agent tokens and breaks active sessions.
         if new_list == raw_list and channels_patch is None and tools_patch is None:
-            logger.debug("patch_agent_heartbeats: no changes detected, skipping config.patch")
+            logger.info(
+                "patch_agent_heartbeats.no_changes",
+                extra={
+                    "gateway_url": self._config.url,
+                    "entry_count": len(entries),
+                },
+            )
             return
 
         gateway_key = self._config.url
@@ -721,6 +728,14 @@ class OpenClawGatewayControlPlane(GatewayControlPlane):
         if base_hash:
             params["baseHash"] = base_hash
         await openclaw_call("config.patch", params, config=self._config)
+        logger.info(
+            "patch_agent_heartbeats.applied",
+            extra={
+                "gateway_url": self._config.url,
+                "entry_count": len(entries),
+                "base_hash_present": bool(base_hash),
+            },
+        )
 
         _gateway_last_heartbeat_patch[gateway_key] = now
 
@@ -754,6 +769,35 @@ def _heartbeat_entry_map(
     }
 
 
+def _workspace_root_remap_pairs() -> list[tuple[str, str]]:
+    remap = os.environ.get("WORKSPACE_ROOT_REMAP", "").strip()
+    if not remap:
+        return []
+    pairs: list[tuple[str, str]] = []
+    for mapping in remap.split(";"):
+        mapping = mapping.strip()
+        if not mapping or "=" not in mapping:
+            continue
+        src, dst = mapping.split("=", 1)
+        src = src.strip().rstrip("/")
+        dst = dst.strip().rstrip("/")
+        if src and dst:
+            pairs.append((src, dst))
+    return pairs
+
+
+def _workspace_path_remap(path: str) -> str:
+    if not isinstance(path, str) or not path:
+        return path
+    path = path.strip()
+    for src, dst in _workspace_root_remap_pairs():
+        if path == src:
+            return dst
+        if path.startswith(src + "/"):
+            return dst + path[len(src) :]
+    return path
+
+
 def _inferred_workspace_path(path: str | None) -> Path | None:
     if not isinstance(path, str) or not path:
         return None
@@ -769,10 +813,19 @@ def _workspace_paths_are_equivalent(raw_workspace: str | None, desired_workspace
     if raw_workspace == desired_workspace:
         return True
 
-    raw_canon = _inferred_workspace_path(raw_workspace)
-    desired_canon = _inferred_workspace_path(desired_workspace)
-    if raw_canon is not None and desired_canon is not None and raw_canon == desired_canon:
-        return True
+    raw_candidates = [raw_workspace, os.path.expanduser(raw_workspace), _workspace_path_remap(raw_workspace)]
+    desired_candidates = [desired_workspace, os.path.expanduser(desired_workspace), _workspace_path_remap(desired_workspace)]
+
+    for raw_candidate in raw_candidates:
+        for desired_candidate in desired_candidates:
+            if not raw_candidate or not desired_candidate:
+                continue
+            if raw_candidate == desired_candidate:
+                return True
+            raw_canon = _inferred_workspace_path(raw_candidate)
+            desired_canon = _inferred_workspace_path(desired_candidate)
+            if raw_canon is not None and desired_canon is not None and raw_canon == desired_canon:
+                return True
 
     raw_tail = raw_workspace.rstrip("/").split("/")[-1]
     desired_tail = desired_workspace.rstrip("/").split("/")[-1]
@@ -1201,15 +1254,14 @@ def _control_plane_for_gateway(gateway: Gateway) -> OpenClawGatewayControlPlane:
     if not gateway.url:
         msg = "Gateway url is required"
         raise OpenClawGatewayError(msg)
-    # Maintain provisioning as a device-mode gateway client to avoid
-    # using `openclaw-control-ui` actor behavior that can trigger frequent
-    # config.patch/restart loops.
+    # Honor persisted gateway auth mode so local control-ui token auth can be
+    # used when device pairing is intentionally disabled.
     return OpenClawGatewayControlPlane(
         GatewayClientConfig(
             url=gateway.url,
             token=gateway.token,
             allow_insecure_tls=gateway.allow_insecure_tls,
-            disable_device_pairing=False,
+            disable_device_pairing=gateway.disable_device_pairing,
         ),
     )
 
@@ -1241,7 +1293,21 @@ async def _patch_gateway_agent_heartbeats(
             return
 
     control_plane = _control_plane_for_gateway(gateway)
+    logger.info(
+        "gateway.heartbeat_sync.start",
+        extra={
+            "gateway_id": str(gateway_id) if gateway_id is not None else None,
+            "entry_count": len(entries),
+        },
+    )
     await control_plane.patch_agent_heartbeats(entries)
+    logger.info(
+        "gateway.heartbeat_sync.done",
+        extra={
+            "gateway_id": str(gateway_id) if gateway_id is not None else None,
+            "entry_count": len(entries),
+        },
+    )
 
     if isinstance(gateway_id, UUID):
         _gateway_last_heartbeat_patch[gateway_id] = now
@@ -1284,7 +1350,21 @@ class OpenClawGatewayProvisioner:
             heartbeat = _heartbeat_config(agent)
             entries.append((agent_id, workspace_path, heartbeat))
         if not entries:
+            logger.info(
+                "gateway.heartbeat_sync.skip_empty",
+                extra={
+                    "gateway_id": str(gateway.id),
+                },
+            )
             return
+        logger.info(
+            "gateway.heartbeat_sync.entries_built",
+            extra={
+                "gateway_id": str(gateway.id),
+                "agent_count": len(agents),
+                "entry_count": len(entries),
+            },
+        )
         await _patch_gateway_agent_heartbeats(gateway, entries=entries)
 
     async def apply_agent_lifecycle(
