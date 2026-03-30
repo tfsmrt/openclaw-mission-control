@@ -50,7 +50,7 @@ services:
     volumes:
       - /home/cronjev/.openclaw/identity:/app/identity:rw
       - /home/cronjev/.openclaw/workspace:/app/workspaces:rw
-      - /home/cronjev/.openclaw/openclaw.json:/etc/openclaw/config.json:ro
+      - /home/cronjev/.openclaw:/etc/openclaw:ro
     depends_on:
       db:
         condition: service_healthy
@@ -132,7 +132,7 @@ services:
     volumes:
       - /home/cronjev/.openclaw/identity:/app/identity:rw
       - /home/cronjev/.openclaw/workspace:/app/workspaces:rw
-      - /home/cronjev/.openclaw/openclaw.json:/etc/openclaw/config.json:ro
+      - /home/cronjev/.openclaw:/etc/openclaw:ro
     restart: unless-stopped
 
 volumes:

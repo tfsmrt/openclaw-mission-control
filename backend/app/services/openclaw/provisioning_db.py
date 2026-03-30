@@ -915,8 +915,13 @@ class AgentLifecycleService(OpenClawDBService):
             else:
                 return agent
         if agent.last_seen_at is None:
-            agent.status = "provisioning"
-        elif now - agent.last_seen_at > OFFLINE_AFTER:
+            # No check-in yet: keep this explicitly non-online so the UI does not
+            # overstate availability during restart/recovery churn.
+            if agent.status not in {"updating", "deleting"}:
+                agent.status = "provisioning"
+            return agent
+
+        if now - agent.last_seen_at > OFFLINE_AFTER:
             agent.status = "offline"
         return agent
 

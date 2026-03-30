@@ -12,8 +12,10 @@ import json
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 
@@ -183,7 +185,7 @@ def _heartbeat_template_name(agent: Agent) -> str:
 
 
 def _workspace_path(agent: Agent, workspace_root: str) -> str:
-    """Return the absolute on-disk workspace directory for an agent.
+    """Return the on-disk workspace directory for an agent.
 
     Why this exists:
     - We derive the folder name from a stable *agent key* (ultimately rooted in ids/session keys)
@@ -198,7 +200,7 @@ def _workspace_path(agent: Agent, workspace_root: str) -> str:
         msg = "gateway_workspace_root is required"
         raise ValueError(msg)
 
-    root = workspace_root.rstrip("/")
+    normalized_root = workspace_root.rstrip("/")
 
     # Use agent key derived from session key when possible. This prevents collisions for
     # lead agents (session key includes board id) even if multiple boards share the same
@@ -211,7 +213,7 @@ def _workspace_path(agent: Agent, workspace_root: str) -> str:
     if key.startswith("mc-gateway-"):
         key = key.removeprefix("mc-")
 
-    return f"{root}/workspace-{slugify(key)}"
+    return f"{normalized_root}/workspace-{slugify(key)}"
 
 
 def _email_local_part(email: str) -> str:
@@ -695,6 +697,21 @@ class OpenClawGatewayControlPlane(GatewayControlPlane):
             logger.debug("patch_agent_heartbeats: no changes detected, skipping config.patch")
             return
 
+        gateway_key = self._config.url
+        last_patch = _gateway_last_heartbeat_patch.get(gateway_key)
+        now = datetime.utcnow()
+        if last_patch is not None and now - last_patch < _GATEWAY_HEARTBEAT_PATCH_MIN_INTERVAL:
+            elapsed = (now - last_patch).total_seconds()
+            logger.warning(
+                "patch_agent_heartbeats.rate_limited",
+                extra={
+                    "gateway_url": gateway_key,
+                    "elapsed_secs": elapsed,
+                    "min_interval_secs": _GATEWAY_HEARTBEAT_PATCH_MIN_INTERVAL.total_seconds(),
+                },
+            )
+            return
+
         patch: dict[str, Any] = {"agents": {"list": new_list}}
         if channels_patch is not None:
             patch["channels"] = channels_patch
@@ -704,6 +721,8 @@ class OpenClawGatewayControlPlane(GatewayControlPlane):
         if base_hash:
             params["baseHash"] = base_hash
         await openclaw_call("config.patch", params, config=self._config)
+
+        _gateway_last_heartbeat_patch[gateway_key] = now
 
 
 async def _gateway_config_agent_list(
@@ -735,6 +754,46 @@ def _heartbeat_entry_map(
     }
 
 
+def _inferred_workspace_path(path: str | None) -> Path | None:
+    if not isinstance(path, str) or not path:
+        return None
+    try:
+        return Path(path).expanduser().resolve(strict=False)
+    except (OSError, ValueError):
+        return None
+
+
+def _workspace_paths_are_equivalent(raw_workspace: str | None, desired_workspace: str) -> bool:
+    if not isinstance(raw_workspace, str) or not raw_workspace:
+        return False
+    if raw_workspace == desired_workspace:
+        return True
+
+    raw_canon = _inferred_workspace_path(raw_workspace)
+    desired_canon = _inferred_workspace_path(desired_workspace)
+    if raw_canon is not None and desired_canon is not None and raw_canon == desired_canon:
+        return True
+
+    raw_tail = raw_workspace.rstrip("/").split("/")[-1]
+    desired_tail = desired_workspace.rstrip("/").split("/")[-1]
+    if raw_tail and desired_tail and raw_tail == desired_tail:
+        return True
+
+    return False
+
+
+def _heartbeat_configs_are_equivalent(
+    raw_heartbeat: object | None,
+    desired_heartbeat: dict[str, Any],
+) -> bool:
+    if not isinstance(raw_heartbeat, dict):
+        return False
+    for key, value in desired_heartbeat.items():
+        if raw_heartbeat.get(key) != value:
+            return False
+    return True
+
+
 def _updated_agent_list(
     raw_list: list[object],
     entry_by_id: dict[str, tuple[str, dict[str, Any]]],
@@ -753,8 +812,19 @@ def _updated_agent_list(
 
         workspace_path, heartbeat = entry_by_id[agent_id]
         new_entry = dict(raw_entry)
-        new_entry["workspace"] = workspace_path
-        new_entry["heartbeat"] = heartbeat
+
+        raw_workspace = raw_entry.get("workspace")
+        if _workspace_paths_are_equivalent(raw_workspace, workspace_path):
+            new_entry["workspace"] = raw_workspace
+        else:
+            new_entry["workspace"] = workspace_path
+
+        raw_heartbeat = raw_entry.get("heartbeat")
+        if _heartbeat_configs_are_equivalent(raw_heartbeat, heartbeat):
+            new_entry["heartbeat"] = raw_heartbeat
+        else:
+            new_entry["heartbeat"] = heartbeat
+
         new_list.append(new_entry)
         updated_ids.add(agent_id)
 
@@ -1121,16 +1191,25 @@ class GatewayMainAgentLifecycleManager(BaseAgentLifecycleManager):
         return preserved
 
 
+# Keep config.patch frequency low to avoid gateway SIGUSR1 cycle loops on rapid updates.
+# Gateway drain window is ~45 seconds; use a longer lockout to avoid repeated restarts.
+_GATEWAY_HEARTBEAT_PATCH_MIN_INTERVAL = timedelta(seconds=300)
+_gateway_last_heartbeat_patch: dict[str, datetime] = {}
+
+
 def _control_plane_for_gateway(gateway: Gateway) -> OpenClawGatewayControlPlane:
     if not gateway.url:
         msg = "Gateway url is required"
         raise OpenClawGatewayError(msg)
+    # Maintain provisioning as a device-mode gateway client to avoid
+    # using `openclaw-control-ui` actor behavior that can trigger frequent
+    # config.patch/restart loops.
     return OpenClawGatewayControlPlane(
         GatewayClientConfig(
             url=gateway.url,
             token=gateway.token,
             allow_insecure_tls=gateway.allow_insecure_tls,
-            disable_device_pairing=gateway.disable_device_pairing,
+            disable_device_pairing=False,
         ),
     )
 
@@ -1144,8 +1223,28 @@ async def _patch_gateway_agent_heartbeats(
 
     Each entry is (agent_id, workspace_path, heartbeat_dict).
     """
+    now = datetime.utcnow()
+    gateway_id = getattr(gateway, "id", None)
+
+    if isinstance(gateway_id, UUID):
+        last_patch = _gateway_last_heartbeat_patch.get(gateway_id)
+        if last_patch is not None and now - last_patch < _GATEWAY_HEARTBEAT_PATCH_MIN_INTERVAL:
+            elapsed = (now - last_patch).total_seconds()
+            logger.warning(
+                "patch_agent_heartbeats.rate_limited",
+                extra={
+                    "gateway_id": str(gateway_id),
+                    "elapsed_secs": elapsed,
+                    "min_interval_secs": _GATEWAY_HEARTBEAT_PATCH_MIN_INTERVAL.total_seconds(),
+                },
+            )
+            return
+
     control_plane = _control_plane_for_gateway(gateway)
     await control_plane.patch_agent_heartbeats(entries)
+
+    if isinstance(gateway_id, UUID):
+        _gateway_last_heartbeat_patch[gateway_id] = now
 
 
 def _should_include_bootstrap(
