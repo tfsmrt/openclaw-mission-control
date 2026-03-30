@@ -139,6 +139,7 @@ import {
   firstMissingRequiredCustomField,
   formatCustomFieldDetailValue,
   isCustomFieldVisible,
+  isCustomFieldValueSet,
   type TaskCustomFieldValues,
 } from "./custom-field-utils";
 
@@ -4000,12 +4001,10 @@ export default function BoardDetailPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              {boardCustomFieldDefinitions.some((def) =>
-                isCustomFieldVisible(
-                  def,
-                  selectedTask?.custom_field_values?.[def.field_key],
-                ),
-              ) && (
+              {boardCustomFieldDefinitions.some((def) => {
+                const value = selectedTask?.custom_field_values?.[def.field_key];
+                return isCustomFieldVisible(def, value) && isCustomFieldValueSet(value);
+              }) && (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-quiet">
                     Custom fields
@@ -4014,7 +4013,7 @@ export default function BoardDetailPage() {
                     {boardCustomFieldDefinitions.map((def) => {
                       const value =
                         selectedTask?.custom_field_values?.[def.field_key];
-                      if (!isCustomFieldVisible(def, value)) return null;
+                      if (!isCustomFieldVisible(def, value) || !isCustomFieldValueSet(value)) return null;
                       return (
                         <div key={def.id} className="flex items-start gap-2">
                           <span className="min-w-[100px] text-xs font-medium text-quiet">
