@@ -58,7 +58,7 @@ async def _ensure_agent_ready(
     """
     from datetime import datetime, timezone, timedelta
     from app.core.time import utcnow
-    from app.core.agent_tokens import generate_agent_token, hash_agent_token
+    from app.services.openclaw.db_agent_state import mint_agent_token
 
     now = datetime.now(timezone.utc)
     last_seen = agent.last_seen_at
@@ -92,9 +92,8 @@ async def _ensure_agent_ready(
     agent.checkin_deadline_at = None
     agent.updated_at = utcnow()
 
-    # Regenerate token and sync to DB
-    new_token = generate_agent_token()
-    agent.agent_token_hash = hash_agent_token(new_token)
+    # Reapply the stable agent token and sync it to workspace metadata.
+    new_token = mint_agent_token(agent)
     session.add(agent)
     await session.flush()
 

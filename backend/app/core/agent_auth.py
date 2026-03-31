@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Literal
 from fastapi import Depends, Header, HTTPException, Request, status
 from sqlmodel import col, select
 
-from app.core.agent_tokens import hash_agent_token, verify_agent_token
+from app.core.agent_tokens import generate_stable_agent_token, verify_agent_token
 from app.core.client_ip import get_client_ip
 from app.core.logging import get_logger
 from app.core.rate_limit import agent_auth_limiter
@@ -56,6 +56,8 @@ async def _find_agent_for_token(session: AsyncSession, token: str) -> Agent | No
         ),
     )
     for agent in agents:
+        if token == generate_stable_agent_token(agent.id):
+            return agent
         if agent.agent_token_hash and verify_agent_token(token, agent.agent_token_hash):
             return agent
     return None
@@ -79,57 +81,6 @@ def _resolve_agent_token(
     if value.lower().startswith("bearer "):
         return value.split(" ", 1)[1].strip() or None
     return None
-
-
-async def _rebind_token_to_recent_wake_candidate(
-    session: AsyncSession,
-    token: str,
-) -> Agent | None:
-    """Safely bind unknown tokens to a single, recently-woken unconfirmed agent.
-
-    This helps self-heal token drift after gateway restarts when the runtime token
-    differs from the persisted hash. The rebind only happens when there is exactly
-    one plausible candidate to avoid cross-agent misbinding.
-    """
-    try:
-        agents = list(
-            await session.exec(
-                select(Agent).where(
-                    col(Agent.last_wake_sent_at).is_not(None),
-                    col(Agent.status) != "deleting",
-                ),
-            ),
-        )
-    except Exception:  # pragma: no cover - defensive for mocked sessions
-        return None
-
-    now = utcnow()
-    candidates: list[Agent] = []
-    for agent in agents:
-        if agent.last_wake_sent_at is None:
-            continue
-        if now - agent.last_wake_sent_at > _REBIND_TOKEN_WINDOW:
-            continue
-        if agent.last_seen_at is not None and agent.last_seen_at >= agent.last_wake_sent_at:
-            continue
-        candidates.append(agent)
-
-    if len(candidates) != 1:
-        return None
-
-    rebound = candidates[0]
-    rebound.agent_token_hash = hash_agent_token(token)
-    rebound.updated_at = now
-    rebound.last_provision_error = None
-    session.add(rebound)
-    await session.commit()
-    await session.refresh(rebound)
-    logger.warning(
-        "agent auth token rebound path=unknown agent_id=%s token_prefix=%s",
-        str(rebound.id),
-        token[:6],
-    )
-    return rebound
 
 
 async def _touch_agent_presence(
@@ -184,15 +135,12 @@ async def get_agent_auth_context(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     agent = await _find_agent_for_token(session, resolved)
     if agent is None:
-        rebound = await _rebind_token_to_recent_wake_candidate(session, resolved)
-        if rebound is None:
-            logger.warning(
-                "agent auth invalid token path=%s token_prefix=%s",
-                request.url.path,
-                resolved[:6],
-            )
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-        agent = rebound
+        logger.warning(
+            "agent auth invalid token path=%s token_prefix=%s",
+            request.url.path,
+            resolved[:6],
+        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     await _touch_agent_presence(request, session, agent)
     return AgentAuthContext(actor_type="agent", agent=agent)
 
@@ -233,15 +181,12 @@ async def get_agent_auth_context_optional(
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
     agent = await _find_agent_for_token(session, resolved)
     if agent is None:
-        rebound = await _rebind_token_to_recent_wake_candidate(session, resolved)
-        if rebound is None:
-            logger.warning(
-                "agent auth optional invalid token path=%s token_prefix=%s",
-                request.url.path,
-                resolved[:6],
-            )
-            return None
-        agent = rebound
+        logger.warning(
+            "agent auth optional invalid token path=%s token_prefix=%s",
+            request.url.path,
+            resolved[:6],
+        )
+        return None
     await _touch_agent_presence(request, session, agent)
     return AgentAuthContext(actor_type="agent", agent=agent)
 

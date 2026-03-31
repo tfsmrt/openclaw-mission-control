@@ -16,6 +16,7 @@ from app.services.openclaw.provisioning_db import (
 )
 from app.services.openclaw.shared import GatewayAgentIdentity
 from app.services.souls_directory import SoulRef
+from app.core.agent_tokens import generate_stable_agent_token
 
 
 def test_slugify_normalizes_and_trims():
@@ -119,6 +120,46 @@ async def test_resolve_agent_auth_token_forces_rotation_when_rotate_tokens_true(
     assert token == "rotated-token"
     assert fatal is False
     assert rotated is True
+    assert previous_hash is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_agent_auth_token_uses_stable_token_when_not_rotating(monkeypatch):
+    agent = _AgentStub(name="Alice")
+
+    async def fake_get_existing_auth_token(*args, **kwargs):
+        raise AssertionError("should not read AUTH_TOKEN from TOOLS.md for stable token mode")
+
+    monkeypatch.setattr(
+        "app.services.openclaw.provisioning_db._get_existing_auth_token",
+        fake_get_existing_auth_token,
+    )
+
+    ctx = SimpleNamespace(
+        session=None,
+        gateway=None,
+        control_plane=None,
+        backoff=None,
+        options=SimpleNamespace(
+            rotate_tokens=False,
+            user=None,
+            force_bootstrap=False,
+            reset_sessions=False,
+        ),
+    )
+    result = SimpleNamespace(errors=[])
+
+    token, fatal, rotated, previous_hash = await _resolve_agent_auth_token(
+        ctx,
+        result,
+        agent,
+        None,
+        agent_gateway_id="agent-alice",
+    )
+
+    assert token == generate_stable_agent_token(agent.id)
+    assert fatal is False
+    assert rotated is False
     assert previous_hash is None
 
 

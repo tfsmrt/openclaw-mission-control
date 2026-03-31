@@ -10,6 +10,7 @@ from fastapi import HTTPException
 
 from app.api import deps
 from app.core import agent_auth
+from app.core.agent_tokens import generate_stable_agent_token, hash_agent_token
 from app.core.auth import AuthContext
 
 
@@ -163,3 +164,22 @@ async def test_optional_agent_auth_invalid_token_logs_short_prefix_only(
             ("/api/v1/tasks/task-2", "invali"),
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_find_agent_for_token_accepts_stable_token_even_when_hash_is_stale() -> None:
+    agent = SimpleNamespace(
+        id="2a95bc8b-5cf2-42fb-bab8-7eb0db83ed6f",
+        agent_token_hash=hash_agent_token("old-random-token"),
+    )
+
+    class _FakeSession:
+        async def exec(self, _stmt: object) -> list[object]:
+            return [agent]
+
+    resolved = await agent_auth._find_agent_for_token(
+        _FakeSession(),  # type: ignore[arg-type]
+        generate_stable_agent_token(agent.id),
+    )
+
+    assert resolved is agent

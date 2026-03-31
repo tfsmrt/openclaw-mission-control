@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
+from app.core.agent_tokens import generate_stable_agent_token
 from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.db.session import async_session_maker
@@ -56,52 +57,8 @@ def _parse_auth_token_from_tools(content: str) -> str | None:
 
 
 async def _resolve_reconcile_auth_token(*, gateway: Gateway, agent: Agent) -> str | None:
-    config = optional_gateway_client_config(gateway)
-    if config is None:
-        logger.warning(
-            "lifecycle.reconcile.auth_token_unavailable",
-            extra={
-                "agent_id": str(agent.id),
-                "reason": "missing_gateway_client_config",
-            },
-        )
-        return None
-    control_plane = OpenClawGatewayControlPlane(config)
-    try:
-        payload = await control_plane.get_agent_file_payload(
-            agent_id=agent_key(agent),
-            name="TOOLS.md",
-        )
-    except OpenClawGatewayError as exc:
-        logger.warning(
-            "lifecycle.reconcile.auth_token_unavailable",
-            extra={
-                "agent_id": str(agent.id),
-                "reason": "tools_read_failed",
-                "error": str(exc),
-            },
-        )
-        return None
-    content = _extract_file_content(payload)
-    if not content:
-        logger.warning(
-            "lifecycle.reconcile.auth_token_unavailable",
-            extra={
-                "agent_id": str(agent.id),
-                "reason": "tools_content_missing",
-            },
-        )
-        return None
-    token = _parse_auth_token_from_tools(content)
-    if not token:
-        logger.warning(
-            "lifecycle.reconcile.auth_token_unavailable",
-            extra={
-                "agent_id": str(agent.id),
-                "reason": "auth_token_not_found",
-            },
-        )
-    return token
+    del gateway
+    return generate_stable_agent_token(agent.id)
 
 
 async def process_lifecycle_queue_task(task: QueuedTask) -> None:

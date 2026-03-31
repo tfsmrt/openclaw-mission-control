@@ -28,6 +28,7 @@ from app.services.openclaw.db_agent_state import (
     mark_provision_requested,
     mint_agent_token,
 )
+from app.core.agent_tokens import hash_agent_token
 from app.services.openclaw.db_service import OpenClawDBService
 from app.services.openclaw.gateway_resolver import optional_gateway_client_config
 from app.services.openclaw.gateway_rpc import OpenClawGatewayError
@@ -172,16 +173,6 @@ class AgentLifecycleOrchestrator(OpenClawDBService):
                 )
 
         raw_token = auth_token
-        if not raw_token and action == "update":
-            raw_token = await self._resolve_update_auth_token(gateway=gateway, agent=locked)
-            if not raw_token:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=(
-                        "Update requires an existing AUTH_TOKEN in gateway TOOLS.md; "
-                        "implicit token rotation on update is disabled."
-                    ),
-                )
         if not raw_token:
             raw_token = mint_agent_token(locked)
         mark_provision_requested(
@@ -275,6 +266,8 @@ class AgentLifecycleOrchestrator(OpenClawDBService):
                     detail=f"Unexpected error {action}ing gateway provisioning.",
                 ) from exc
             return locked
+
+        locked.agent_token_hash = hash_agent_token(raw_token)
 
         mark_provision_complete(
             locked,

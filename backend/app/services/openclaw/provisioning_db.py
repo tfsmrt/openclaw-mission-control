@@ -21,7 +21,7 @@ from sqlalchemy import asc, func, or_
 from sqlmodel import col, select
 from sse_starlette.sse import EventSourceResponse
 
-from app.core.agent_tokens import verify_agent_token
+from app.core.agent_tokens import generate_stable_agent_token, verify_agent_token
 from app.core.logging import TRACE_LEVEL
 from app.core.time import utcnow
 from app.db import crud
@@ -523,41 +523,7 @@ async def _resolve_agent_auth_token(
         auth_token = await _rotate_agent_token(ctx.session, agent)
         return auth_token, False, True, previous_hash
 
-    try:
-        auth_token = await _get_existing_auth_token(
-            agent_gateway_id=agent_gateway_id,
-            control_plane=ctx.control_plane,
-            backoff=ctx.backoff,
-        )
-    except TimeoutError as exc:
-        _append_sync_error(result, agent=agent, board=board, message=str(exc))
-        return None, True, False, previous_hash
-
-    if not auth_token:
-        _append_sync_error(
-            result,
-            agent=agent,
-            board=board,
-            message=(
-                "Skipping agent update: AUTH_TOKEN missing in gateway TOOLS.md "
-                "(use --rotate-tokens for explicit re-key)."
-            ),
-        )
-        return None, False, False, previous_hash
-    elif agent.agent_token_hash and not verify_agent_token(
-        auth_token,
-        agent.agent_token_hash,
-    ):
-        _append_sync_error(
-            result,
-            agent=agent,
-            board=board,
-            message=(
-                "Skipping agent update: AUTH_TOKEN mismatch between gateway TOOLS.md "
-                "and backend hash (use --rotate-tokens for explicit re-key)."
-            ),
-        )
-        return None, False, False, previous_hash
+    auth_token = generate_stable_agent_token(agent.id)
     return auth_token, False, rotated, previous_hash
 
 
